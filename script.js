@@ -1,252 +1,280 @@
-/* script.js */
-
-// Global variables to store the full dataset and currently filtered data
-let allData = [];
-let filteredData = [];
-
-// CSV file path
-const dataFile = "data.csv";
-
-// Load and parse CSV data
-d3.text(dataFile).then(function(rawText) {
-  // Convert raw CSV text into an array of rows (each row is an array of column values)
-  let rows = d3.csvParseRows(rawText);
-  let parsedData = [];
-
-  rows.forEach((r) => {
-    if (!r || r.length === 0) return; // Skip empty lines
-
-    // Assume the last column might be an amount if it includes '($'
-    const lastCol = r[r.length - 1];
-    if (lastCol && lastCol.includes("($")) {
-      // Parse the last column as a numeric value (parentheses indicate a negative number)
-      let numeric = parseFloat(lastCol.replace(/[^\d.-]/g, ""));
-      let category = r[0] ? r[0].trim() : "Unlabeled";
-      if (!isNaN(numeric)) {
-        parsedData.push({
-          Category: category,
-          Amount: numeric,
-        });
+// Wait for the DOM to load and add a listener for file uploads
+document.addEventListener("DOMContentLoaded", function() {
+    const fileInput = document.getElementById("fileInput");
+    fileInput.addEventListener("change", handleFileUpload);
+  });
+  
+  function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const text = e.target.result;
+      // Parse the text file into a nested data structure
+      const dataTree = parseData(text);
+      // Compute total values for each section recursively
+      dataTree.forEach(node => computeSums(node));
+      // Create interactive visualizations
+      createTreemap({ name: "Spending", children: dataTree });
+      createBarChart(dataTree);
+      createPieChart(dataTree);
+    };
+    reader.readAsText(file);
+  }
+  
+  // ----------------------
+  // PARSING FUNCTIONS
+  // ----------------------
+  function parseData(text) {
+    const lines = text.split("\n");
+    let index = 0;
+    const sections = [];
+  
+    while (index < lines.length) {
+      let line = lines[index].trim();
+      if (line === "") { 
+        index++; 
+        continue; 
+      }
+      if (line.startsWith("[")) {
+        sections.push(parseSection());
+      } else {
+        index++;
       }
     }
-  });
-
-  // Set global variables for the full dataset and initialize filteredData
-  allData = parsedData;
-  filteredData = allData;
-
-  console.log("Parsed Data:", allData);
-
-  // Populate the filter dropdown options
-  createFilterOptions(allData);
-
-  // Update the dashboard with the initial full dataset
-  updateSummaryMetrics(filteredData);
-  updateVisualizations(filteredData);
-});
-
-// Create dropdown options based on unique categories from the data
-function createFilterOptions(data) {
-  const select = document.getElementById("categoryFilter");
-  // Clear any existing options
-  select.innerHTML = "";
-  let categories = [...new Set(data.map(d => d.Category))];
-  categories.sort();
+    return sections;
   
-  // Create "All Categories" option
-  let allOption = document.createElement("option");
-  allOption.value = "All";
-  allOption.text = "All Categories";
-  select.appendChild(allOption);
+    // Recursive function to parse a section (supports nested sections)
+    function parseSection() {
+      const section = { name: "", amount: 0, items: [], children: [] };
   
-  // Create an option for each category
-  categories.forEach(cat => {
-    let opt = document.createElement("option");
-    opt.value = cat;
-    opt.text = cat;
-    select.appendChild(opt);
-  });
-}
-
-// Update summary metrics (total, average, highest spending)
-function updateSummaryMetrics(data) {
-  let total = d3.sum(data, d => d.Amount);
-  let avg = d3.mean(data, d => d.Amount);
-  let maxEntry = data.reduce((a, b) => a.Amount > b.Amount ? a : b, {Amount: 0, Category: "N/A"});
-  document.getElementById("totalSpending").textContent = total.toFixed(2);
-  document.getElementById("averageSpending").textContent = avg.toFixed(2);
-  document.getElementById("maxCategory").textContent = maxEntry.Category + " ($" + maxEntry.Amount.toFixed(2) + ")";
-}
-
-// Update all visualizations based on the (filtered) data
-function updateVisualizations(data) {
-  // Aggregate data by Category for visualizations that need it
-  const aggregatedData = d3.nest()
-    .key(d => d.Category)
-    .rollup(v => d3.sum(v, d => d.Amount))
-    .entries(data);
-    
-  createBarChart(aggregatedData);
-  createTreemap(aggregatedData);
-  createSankey(aggregatedData);
-  createWaterfall(aggregatedData);
-  createScatterChart(data);
-  createPieChart(aggregatedData);
-  populateDataTable(data);
-}
-
-// Event listener for filter dropdown
-document.getElementById("categoryFilter").addEventListener("change", function() {
-  let selected = this.value;
-  if (selected === "All") {
-    filteredData = allData;
-  } else {
-    filteredData = allData.filter(d => d.Category === selected);
-  }
-  updateSummaryMetrics(filteredData);
-  updateVisualizations(filteredData);
-});
-
-// Event listener for the reset filter button
-document.getElementById("resetFilter").addEventListener("click", function() {
-  document.getElementById("categoryFilter").value = "All";
-  filteredData = allData;
-  updateSummaryMetrics(filteredData);
-  updateVisualizations(filteredData);
-});
-
-// Visualization Functions
-
-// Bar Chart: Spending by Category
-function createBarChart(aggregatedData) {
-  const trace = {
-    x: aggregatedData.map(d => d.key),
-    y: aggregatedData.map(d => d.value),
-    type: 'bar',
-    marker: { color: 'rgb(142,124,195)' }
-  };
-  const layout = {
-    title: 'Spending by Category'
-  };
-  Plotly.newPlot('barChart', [trace], layout);
-}
-
-// Treemap: Visualize spending distribution hierarchically
-function createTreemap(aggregatedData) {
-  const treemapData = [{
-    type: "treemap",
-    labels: aggregatedData.map(d => d.key),
-    values: aggregatedData.map(d => d.value),
-    textinfo: "label+value+percent parent",
-    hoverinfo: "label+value+percent parent+percent entry"
-  }];
-  const layout = {
-    title: "Spending Treemap"
-  };
-  Plotly.newPlot('treemapChart', treemapData, layout);
-}
-
-// Sankey Diagram: Show flow from a "Total Budget" to individual categories
-function createSankey(aggregatedData) {
-  const labels = ["Total Budget"].concat(aggregatedData.map(d => d.key));
-  const source = [];
-  const target = [];
-  const values = [];
-  
-  aggregatedData.forEach((d, i) => {
-    source.push(0);       // "Total Budget" is the source (index 0)
-    target.push(i + 1);   // Each category gets an index starting at 1
-    values.push(d.value);
-  });
-  
-  const sankeyData = {
-    type: "sankey",
-    orientation: "h",
-    node: {
-      pad: 15,
-      thickness: 20,
-      line: { color: "black", width: 0.5 },
-      label: labels
-    },
-    link: {
-      source: source,
-      target: target,
-      value: values
+      // Example header: [OPERATING RESERVES] {  
+      const headerLine = lines[index++].trim();
+      const headerRegex = /^\[+\s*([^:\]]+)(?::\s*\$([\d,.\-]+))?\s*\]+.*\{/;
+      const headerMatch = headerLine.match(headerRegex);
+      if (headerMatch) {
+        section.name = headerMatch[1].trim();
+        if (headerMatch[2]) {
+          section.amount = parseFloat(headerMatch[2].replace(/,/g, ""));
+        }
+      }
+      // Process content until we reach a closing "}"
+      while (index < lines.length) {
+        let currLine = lines[index].trim();
+        if (currLine === "}" || currLine === "};") {
+          index++;
+          break;
+        }
+        // Check if a new nested section starts
+        if (currLine.startsWith("[")) {
+          section.children.push(parseSection());
+        } else if (currLine !== "") {
+          const item = parseItem(currLine);
+          if (item) section.items.push(item);
+          index++;
+        } else {
+          index++;
+        }
+      }
+      return section;
     }
-  };
-  const layout = {
-    title: "Sankey Diagram of Fund Flow",
-    font: { size: 10 }
-  };
-  Plotly.newPlot('sankeyChart', [sankeyData], layout);
-}
-
-// Waterfall Chart: Display how spending amounts add up across categories
-function createWaterfall(aggregatedData) {
-  const measures = aggregatedData.map(() => "relative");
-  const trace = {
-    type: "waterfall",
-    x: aggregatedData.map(d => d.key),
-    y: aggregatedData.map(d => d.value),
-    measure: measures,
-    textposition: "outside",
-    text: aggregatedData.map(d => d.value)
-  };
-  const layout = {
-    title: "Waterfall Chart of Spending"
-  };
-  Plotly.newPlot('waterfallChart', [trace], layout);
-}
-
-// Scatter/Bubble Chart: Plot individual spending data points
-function createScatterChart(data) {
-  const trace = {
-    x: data.map(d => d.Category),
-    y: data.map(d => d.Amount),
-    mode: 'markers',
-    marker: {
-      size: data.map(d => Math.sqrt(Math.abs(d.Amount)) * 5) // Scale bubble size (ensure positive sizes)
-    },
-    text: data.map(d => d.Category)
-  };
-  const layout = {
-    title: "Scatter/Bubble Chart of Spending",
-    xaxis: { title: "Category" },
-    yaxis: { title: "Spending Amount" }
-  };
-  Plotly.newPlot('scatterChart', [trace], layout);
-}
-
-// Pie Chart: Show spending distribution as portions of a whole
-function createPieChart(aggregatedData) {
-  const trace = {
-    type: "pie",
-    labels: aggregatedData.map(d => d.key),
-    values: aggregatedData.map(d => d.value),
-    textinfo: "label+percent",
-    hoverinfo: "label+value+percent"
-  };
-  const layout = {
-    title: "Pie Chart of Spending Distribution"
-  };
-  Plotly.newPlot('pieChart', [trace], layout);
-}
-
-// Populate an interactive data table with raw CSV data
-function populateDataTable(data) {
-  const tbody = document.querySelector("#dataTable tbody");
-  tbody.innerHTML = "";  // Clear existing rows
-  data.forEach(d => {
-    const tr = document.createElement("tr");
-    
-    const categoryTd = document.createElement("td");
-    categoryTd.textContent = d.Category;
-    tr.appendChild(categoryTd);
-    
-    const amountTd = document.createElement("td");
-    amountTd.textContent = d.Amount;
-    tr.appendChild(amountTd);
-    
-    tbody.appendChild(tr);
-  });
-}
+  }
+  
+  // Parse an individual line item such as:
+  // "Total Reserves | $1,189,555.55" or "Student Life Development Specialist IV (1 FTE)* – ($123,948.00)"
+  function parseItem(line) {
+    const itemRegex = /^(.+?)[|\–-]\s*\(?\$([\d,.\-]+)\)?/;
+    const match = line.match(itemRegex);
+    if (match) {
+      const key = match[1].trim();
+      const value = parseFloat(match[2].replace(/,/g, ""));
+      return { key: key, amount: value };
+    }
+    return null;
+  }
+  
+  // Recursively compute the sum of amounts for each node based on its header amount, items, and children.
+  function computeSums(node) {
+    let sumItems = node.items.reduce((acc, item) => acc + item.amount, 0);
+    let sumChildren = node.children.reduce((acc, child) => acc + computeSums(child), 0);
+    node.value = (node.amount || 0) + sumItems + sumChildren;
+    return node.value;
+  }
+  
+  // ----------------------
+  // VISUALIZATION FUNCTIONS
+  // ----------------------
+  
+  // TREEMAP
+  function createTreemap(rootData) {
+    // Clear previous chart if exists
+    d3.select("#treemap").select("svg").remove();
+  
+    const width = 800;
+    const height = 400;
+  
+    const svg = d3.select("#treemap")
+      .append("svg")
+      .attr("width", width)
+      .attr("height", height);
+  
+    // Create a tooltip
+    const tooltip = d3.select("body")
+      .append("div")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
+  
+    const root = d3.hierarchy(rootData)
+      .sum(d => d.value)
+      .sort((a, b) => b.value - a.value);
+  
+    d3.treemap()
+      .size([width, height])
+      .padding(2)(root);
+  
+    const nodes = svg.selectAll("g")
+      .data(root.leaves())
+      .enter()
+      .append("g")
+      .attr("transform", d => `translate(${d.x0},${d.y0})`);
+  
+    nodes.append("rect")
+      .attr("width", d => d.x1 - d.x0)
+      .attr("height", d => d.y1 - d.y0)
+      .attr("fill", d => d3.interpolateBlues(d.data.value / root.data.value))
+      .on("mousemove", (event, d) => {
+        tooltip.style("opacity", 1)
+          .html(`<strong>${d.data.name}</strong><br>$${d.data.value.toLocaleString()}`)
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 25) + "px");
+      })
+      .on("mouseout", () => tooltip.style("opacity", 0));
+  
+    nodes.append("text")
+      .attr("x", 4)
+      .attr("y", 14)
+      .text(d => d.data.name)
+      .attr("font-size", "10px")
+      .attr("fill", "white");
+  }
+  
+  // BAR CHART: Compare top-level sections and their spending
+  function createBarChart(data) {
+    d3.select("#barChart").select("svg").remove();
+  
+    const margin = { top: 30, right: 20, bottom: 50, left: 80 },
+          width = 800 - margin.left - margin.right,
+          height = 400 - margin.top - margin.bottom;
+  
+    // For bar chart, use each top-level section's total value
+    const barData = data.map(d => ({ name: d.name, value: d.value }));
+  
+    const svg = d3.select("#barChart")
+      .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+  
+    const x = d3.scaleBand()
+      .domain(barData.map(d => d.name))
+      .range([0, width])
+      .padding(0.3);
+  
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(barData, d => d.value)]).nice()
+      .range([height, 0]);
+  
+    svg.append("g")
+      .attr("transform", `translate(0,${height})`)
+      .call(d3.axisBottom(x))
+      .selectAll("text")
+        .attr("transform", "rotate(-40)")
+        .style("text-anchor", "end");
+  
+    svg.append("g")
+      .call(d3.axisLeft(y).tickFormat(d => "$" + d3.format(",")(d)));
+  
+    // Tooltip for bar chart
+    const tooltip = d3.select("body")
+      .append("div")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
+  
+    svg.selectAll(".bar")
+      .data(barData)
+      .enter()
+      .append("rect")
+        .attr("class", "bar")
+        .attr("x", d => x(d.name))
+        .attr("y", d => y(d.value))
+        .attr("width", x.bandwidth())
+        .attr("height", d => height - y(d.value))
+        .attr("fill", "#69b3a2")
+        .on("mousemove", (event, d) => {
+          tooltip.style("opacity", 1)
+            .html(`<strong>${d.name}</strong><br>$${d.value.toLocaleString()}`)
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 25) + "px");
+        })
+        .on("mouseout", () => tooltip.style("opacity", 0));
+  }
+  
+  // PIE CHART: Show percentage breakdown of top-level spending
+  function createPieChart(data) {
+    d3.select("#pieChart").select("svg").remove();
+  
+    const width = 450,
+          height = 450,
+          margin = 40;
+  
+    const radius = Math.min(width, height) / 2 - margin;
+  
+    // Prepare data: top-level sections and their values
+    const pieData = {};
+    data.forEach(d => { pieData[d.name] = d.value; });
+  
+    const svg = d3.select("#pieChart")
+      .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+      .append("g")
+        .attr("transform", `translate(${width/2},${height/2})`);
+  
+    const color = d3.scaleOrdinal()
+      .domain(Object.keys(pieData))
+      .range(d3.schemeSet2);
+  
+    const pie = d3.pie()
+      .value(d => d.value);
+    const data_ready = pie(d3.entries(pieData));
+  
+    // Tooltip for pie chart
+    const tooltip = d3.select("body")
+      .append("div")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
+  
+    svg.selectAll('path')
+      .data(data_ready)
+      .enter()
+      .append('path')
+      .attr('d', d3.arc()
+        .innerRadius(0)
+        .outerRadius(radius)
+      )
+      .attr('fill', d => color(d.data.key))
+      .attr("stroke", "white")
+      .style("stroke-width", "2px")
+      .on("mousemove", (event, d) => {
+        const total = d3.sum(Object.values(pieData));
+        const percent = ((d.data.value / total) * 100).toFixed(2);
+        tooltip.style("opacity", 1)
+          .html(`<strong>${d.data.key}</strong><br>$${d.data.value.toLocaleString()}<br>${percent}%`)
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 25) + "px");
+      })
+      .on("mouseout", () => tooltip.style("opacity", 0));
+  }
+  
