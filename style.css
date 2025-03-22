@@ -32,51 +32,12 @@ body {
     padding: 1em;
   }
   
-  /* Home view card grid */
-  .card-grid {
+  /* Visualization Containers on Home */
+  .visualization-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
     gap: 1em;
-  }
-  .card {
-    background: #fff;
-    padding: 1em;
-    border: 1px solid #ddd;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    transition: transform 0.2s;
-  }
-  .card:hover {
-    transform: scale(1.02);
-  }
-  .card h2 {
-    margin-top: 0;
-    font-size: 1.2em;
-  }
-  
-  /* Detail view header */
-  .detail-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .detail-header h2 {
-    margin: 0;
-  }
-  .back-btn {
-    background: #555;
-    color: #fff;
-    border: none;
-    padding: 0.5em 1em;
-    cursor: pointer;
-  }
-  
-  /* Chart grid for drill-down view */
-  .chart-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 1em;
-    margin-top: 1em;
+    margin-bottom: 2em;
   }
   .chart-container {
     background: #fff;
@@ -85,23 +46,60 @@ body {
     height: 400px;
   }
   
-  /* Executive Review / Red Flags */
-  .review-section {
+  /* Drill-down selector styles */
+  .drilldown-container {
     margin-top: 1em;
   }
-  .review-section h3 {
-    margin-top: 0.5em;
+  .drilldown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
-  .red-flag {
-    background: #ffe6e6;
-    border: 1px solid #ff9999;
-    padding: 1em;
+  .drilldown-header h2 {
+    margin: 0;
+  }
+  .back-btn {
+    background: #555;
+    color: #fff;
+    border: none;
+    padding: 0.5em 1em;
+    cursor: pointer;
     margin-bottom: 1em;
   }
-  .red-flag h4 {
-    margin: 0 0 0.5em;
+  .item-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1em;
+    margin-top: 1em;
   }
-  .red-flag p {
-    margin: 0.2em 0;
+  .item-card {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 1em;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .item-card:hover {
+    transform: scale(1.02);
+  }
+  
+  /* Table for details */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1em;
+  }
+  table, th, td {
+    border: 1px solid #ccc;
+  }
+  th, td {
+    padding: 0.5em;
+    text-align: left;
+  }
+  
+  /* Red Flag / Deficit gauge additional styles */
+  .gauge-container {
+    margin-top: 1em;
+    height: 300px;
   }
   

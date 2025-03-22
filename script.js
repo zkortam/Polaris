@@ -1,54 +1,35 @@
-let parsedData = [];
+// Global variables to hold the parsed structured data and drilldown navigation stack
+let structuredData = [];
+let drilldownStack = [];
 
+// When the document loads, set up navigation and load the data file.
 document.addEventListener("DOMContentLoaded", () => {
-  // Set up navigation
   document.getElementById("homeBtn").addEventListener("click", showHome);
-  document.getElementById("reviewBtn").addEventListener("click", showExecutiveReview);
+  document.getElementById("drilldownBtn").addEventListener("click", () => {
+    // Start drilldown from top–level A groups.
+    drilldownStack = [];
+    showDrilldown({ level: "ROOT", children: structuredData });
+  });
 
-  // Load and parse the data file
   fetch("data.txt")
     .then((response) => response.text())
     .then((dataText) => {
-      parsedData = parseData(dataText);
+      let lines = dataText.split("\n");
+      let [parsed, _] = parseStructuredData(lines, 0);
+      structuredData = parsed;
       showHome();
     })
     .catch((err) => console.error("Error loading data:", err));
 });
 
-/* ============================
-   Data Parsing Functions
-   ----------------------------
-   The parser reads your custom file format:
-   – A block starts with a header like "[SECTION NAME] {"
-   – Key–value pairs use "|" or "–" as a separator.
-   – Blocks can nest.
-============================ */
-function parseData(dataText) {
-  const lines = dataText.split("\n");
-  let blocks = [];
-  let index = 0;
-  while (index < lines.length) {
-    let line = lines[index].trim();
-    if (line === "") {
-      index++;
-      continue;
-    }
-    let headerMatch = line.match(/^\[+(.+?)\]+\s*\{$/);
-    if (headerMatch) {
-      let blockName = headerMatch[1].trim();
-      let [block, nextIndex] = parseBlock(lines, index + 1);
-      block.name = blockName;
-      blocks.push(block);
-      index = nextIndex;
-    } else {
-      index++;
-    }
-  }
-  return blocks;
-}
-
-function parseBlock(lines, index) {
-  let block = { type: "block", name: "", children: [] };
+/* ========================================================
+   NEW STRUCTURED DATA PARSER
+   Recognizes lines starting with A: B: C: or D:.
+   Container groups end with '{' and are closed by '}'.
+   D–lines (leaf items) use a separator (| or –) to capture a value.
+======================================================== */
+function parseStructuredData(lines, index) {
+  let items = [];
   while (index < lines.length) {
     let line = lines[index].trim();
     if (line === "") {
@@ -56,33 +37,47 @@ function parseBlock(lines, index) {
       continue;
     }
     if (line === "}") {
-      return [block, index + 1];
+      index++;
+      break;
     }
-    let blockHeaderMatch = line.match(/^\[+(.+?)\]+\s*\{$/);
-    if (blockHeaderMatch) {
-      let blockName = blockHeaderMatch[1].trim();
-      let [childBlock, nextIndex] = parseBlock(lines, index + 1);
-      childBlock.name = blockName;
-      block.children.push(childBlock);
-      index = nextIndex;
-      continue;
-    }
-    let kvMatch = line.match(/^(.*?)\s*(\||–)\s*(.*?)$/);
-    if (kvMatch) {
-      let key = kvMatch[1].trim();
-      let rawValue = kvMatch[3].trim();
-      let value = parseValue(rawValue);
-      block.children.push({ type: "entry", key: key, value: value });
+    // Match group header. It can optionally end with "{".
+    let groupMatch = line.match(/^([A-D]):\s*(.+?)(\s*\{)?$/);
+    if (groupMatch) {
+      let level = groupMatch[1]; // A, B, C, or D
+      let namePart = groupMatch[2].trim();
+      let hasBrace = groupMatch[3] && groupMatch[3].includes("{");
+      if (hasBrace) {
+        // This is a container group.
+        let node = { level: level, name: namePart, children: [] };
+        index++;
+        let result = parseStructuredData(lines, index);
+        node.children = result[0];
+        index = result[1];
+        items.push(node);
+      } else {
+        // It might be a leaf (D group) if a separator is present.
+        let leafMatch = line.match(/^([A-D]):\s*(.+?)\s*(\||–)\s*(.+)$/);
+        if (leafMatch) {
+          let leafLevel = leafMatch[1];
+          let leafName = leafMatch[2].trim();
+          let valueStr = leafMatch[4].trim();
+          let value = parseValue(valueStr);
+          items.push({ level: leafLevel, name: leafName, value: value });
+        } else {
+          // Otherwise, a leaf with no value.
+          items.push({ level: groupMatch[1], name: namePart });
+        }
+        index++;
+      }
     } else {
-      block.children.push({ type: "text", content: line });
+      index++;
     }
-    index++;
   }
-  return [block, index];
+  return [items, index];
 }
 
 function parseValue(valueStr) {
-  let s = valueStr.trim().replace(/,/g, "");
+  let s = valueStr.replace(/,/g, "").trim();
   let negative = false;
   if (s.startsWith("(") && s.endsWith(")")) {
     negative = true;
@@ -94,294 +89,286 @@ function parseValue(valueStr) {
   return valueStr;
 }
 
-/* ============================
-   Helper Functions
-============================ */
-// Find a block whose name contains the given fragment.
-function getBlockByName(blocks, fragment) {
-  for (let block of blocks) {
-    if (block.name && block.name.toUpperCase().includes(fragment.toUpperCase())) {
-      return block;
-    }
+/* ========================================================
+   HOME PAGE: Total Spending Visualizations
+======================================================== */
+function showHome() {
+  const content = document.getElementById("content");
+  content.innerHTML = "<h2>Total Spending Overview</h2>";
+
+  // Create a grid container for the main visualizations.
+  let grid = document.createElement("div");
+  grid.className = "visualization-grid";
+
+  // 1. Sankey Diagram: Build from the "BUDGET SUMMARY" A–group.
+  let budgetSummary = structuredData.find(
+    (node) => node.level === "A" && node.name.toUpperCase().includes("BUDGET SUMMARY")
+  );
+  if (budgetSummary) {
+    let sankeyDiv = document.createElement("div");
+    sankeyDiv.className = "chart-container";
+    sankeyDiv.id = "sankeyDiagram";
+    grid.appendChild(sankeyDiv);
+    createSankeyDiagram(budgetSummary);
   }
-  return null;
+
+  // 2. Treemap: Display each A–group category with color based on its name.
+  let treemapDiv = document.createElement("div");
+  treemapDiv.className = "chart-container";
+  treemapDiv.id = "categoryTreemap";
+  grid.appendChild(treemapDiv);
+  createCategoryTreemap(structuredData);
+
+  // 3. Deficit Gauge: Show that we are almost $600K in deficit.
+  let gaugeDiv = document.createElement("div");
+  gaugeDiv.className = "chart-container gauge-container";
+  gaugeDiv.id = "deficitGauge";
+  grid.appendChild(gaugeDiv);
+  createDeficitGauge(budgetSummary);
+
+  content.appendChild(grid);
+
+  // Optionally, add some descriptive text.
+  let info = document.createElement("p");
+  info.innerHTML = "Use the navigation buttons above to explore detailed breakdowns.";
+  content.appendChild(info);
 }
 
-// Extract a total value from the block’s title (if present, e.g., "CAREER EMPLOYEES: $1,777,457.00")
-function getTotalFromBlockTitle(block) {
-  let match = block.name.match(/\$([\d.,]+)/);
-  if (match) {
-    return parseFloat(match[1].replace(/,/g, ""));
-  }
-  return null;
-}
+/* ========================================================
+   CHART CREATION FUNCTIONS
+======================================================== */
 
-// Sum all numeric entries within a block (non-recursive).
-function sumEntries(block) {
-  let sum = 0;
-  block.children.forEach(child => {
-    if (child.type === "entry" && typeof child.value === "number") {
-      sum += child.value;
+// Sankey Diagram: Use the "BUDGET SUMMARY" group.
+function createSankeyDiagram(budgetGroup) {
+  // In budgetGroup, find the D–items in the "General" subgroup (or its children)
+  let items = [];
+  if (budgetGroup.children && budgetGroup.children.length > 0) {
+    // Assume one B group (usually "General") then one C group ("Items")
+    let bGroup = budgetGroup.children.find((child) => child.level === "B");
+    if (bGroup && bGroup.children) {
+      let cGroup = bGroup.children.find((child) => child.level === "C");
+      if (cGroup && cGroup.children) {
+        items = cGroup.children.filter((child) => child.level === "D" && child.value !== undefined);
+      }
     }
+  }
+  // Identify the revenue item and spending items.
+  let revenueItem = items.find((item) => item.name.toUpperCase().includes("AS REVENUE"));
+  if (!revenueItem) return;
+  let revenue = revenueItem.value;
+  // Spending items: all other D items with negative values.
+  let spendingItems = items.filter((item) => item !== revenueItem && typeof item.value === "number" && item.value < 0);
+  // Build sankey data: source node is "AS Revenue", targets are each spending category.
+  let sources = [];
+  let targets = [];
+  let values = [];
+  let labels = ["AS Revenue"];
+  spendingItems.forEach((item) => {
+    labels.push(item.name);
+    sources.push(0);
+    targets.push(labels.length - 1);
+    values.push(Math.abs(item.value));
   });
+  let data = [{
+    type: "sankey",
+    orientation: "h",
+    node: {
+      pad: 15,
+      thickness: 20,
+      line: { color: "black", width: 0.5 },
+      label: labels
+    },
+    link: {
+      source: sources,
+      target: targets,
+      value: values
+    }
+  }];
+  let layout = {
+    title: "AS Revenue Flow into Spending Categories",
+    font: { size: 10 }
+  };
+  Plotly.newPlot("sankeyDiagram", data, layout);
+}
+
+// Treemap: Use all A–groups. Color green if name contains "STUDENT" or "EVENT", else red.
+function createCategoryTreemap(aGroups) {
+  // For each A–group, sum the absolute value of its D–items (recursively).
+  let labels = [];
+  let parents = [];
+  let values = [];
+  let colors = [];
+  aGroups.forEach((node, i) => {
+    labels.push(node.name);
+    parents.push("Total Spending");
+    let sum = sumGroup(node);
+    values.push(sum);
+    colors.push(getCategoryColor(node.name));
+  });
+  // Add a root node.
+  labels.unshift("Total Spending");
+  parents.unshift("");
+  values.unshift(values.reduce((a, b) => a + b, 0));
+  colors.unshift("#CCCCCC");
+  let data = [{
+    type: "treemap",
+    labels: labels,
+    parents: parents,
+    values: values,
+    marker: { colors: colors },
+    textinfo: "label+value"
+  }];
+  let layout = {
+    title: "Category Breakdown (Green: Student/Events; Red: Operational)"
+  };
+  Plotly.newPlot("categoryTreemap", data, layout);
+}
+
+// Gauge Chart for Deficit: Using the "2024–2025 Remaining Funds" value.
+function createDeficitGauge(budgetGroup) {
+  let items = [];
+  if (budgetGroup.children && budgetGroup.children.length > 0) {
+    let bGroup = budgetGroup.children.find((child) => child.level === "B");
+    if (bGroup && bGroup.children) {
+      let cGroup = bGroup.children.find((child) => child.level === "C");
+      if (cGroup && cGroup.children) {
+        items = cGroup.children.filter((child) => child.level === "D" && child.value !== undefined);
+      }
+    }
+  }
+  let deficitItem = items.find((item) => item.name.toUpperCase().includes("REMAINING FUNDS"));
+  let deficit = deficitItem ? deficitItem.value : -587367.41;
+  // We expect a negative number. Use a gauge indicator to show deficit.
+  let data = [{
+    type: "indicator",
+    mode: "gauge+number",
+    value: Math.abs(deficit),
+    title: { text: "Deficit" },
+    gauge: {
+      axis: { range: [0, Math.abs(deficit) * 1.5] },
+      bar: { color: deficit < 0 ? "red" : "green" },
+      steps: [
+        { range: [0, Math.abs(deficit)], color: "#ffcccc" },
+        { range: [Math.abs(deficit), Math.abs(deficit) * 1.5], color: "#ffe6e6" }
+      ]
+    }
+  }];
+  let layout = {
+    title: "Deficit Gauge (Nearly $600K)"
+  };
+  Plotly.newPlot("deficitGauge", data, layout);
+}
+
+/* ========================================================
+   Utility Functions for Aggregation & Color
+======================================================== */
+// Recursively sum the absolute values of all D items in a group.
+function sumGroup(node) {
+  let sum = 0;
+  if (node.children && node.children.length > 0) {
+    node.children.forEach((child) => {
+      sum += sumGroup(child);
+    });
+  } else if (node.level === "D" && typeof node.value === "number") {
+    // For spending (negative numbers) take absolute.
+    sum += Math.abs(node.value);
+  }
   return sum;
 }
 
-/* ============================
-   Navigation & Views
-============================ */
-
-// Home view: Display cards for each main category (top-level block).
-function showHome() {
-  const content = document.getElementById("content");
-  content.innerHTML = "<h2>Main Categories</h2>";
-  let grid = document.createElement("div");
-  grid.className = "card-grid";
-  parsedData.forEach(block => {
-    let card = document.createElement("div");
-    card.className = "card";
-    let title = document.createElement("h2");
-    title.textContent = block.name;
-    card.appendChild(title);
-    // Show total if available in the header (e.g., "$1,777,457.00")
-    let total = getTotalFromBlockTitle(block);
-    if (total !== null) {
-      let p = document.createElement("p");
-      p.textContent = "Total: $" + total.toLocaleString();
-      card.appendChild(p);
-    }
-    card.addEventListener("click", () => showDetail(block));
-    grid.appendChild(card);
-  });
-  content.appendChild(grid);
+// Return a color based on the category name: green for student/services, red for operational.
+function getCategoryColor(name) {
+  let upper = name.toUpperCase();
+  if (upper.includes("STUDENT") || upper.includes("EVENT")) {
+    return "#66CC66"; // green
+  }
+  return "#FF6666"; // red
 }
 
-// Drill-down view: Display details for a given category block.
-function showDetail(block) {
+/* ========================================================
+   DRILL–DOWN NAVIGATION (Hierarchical Selector)
+======================================================== */
+function showDrilldown(node) {
+  const content = document.getElementById("content");
+  content.innerHTML = "";
+  
+  // Header with back button if not at root.
+  let headerDiv = document.createElement("div");
+  headerDiv.className = "drilldown-header";
+  let title = document.createElement("h2");
+  title.textContent = node.name ? node.name : "Categories";
+  headerDiv.appendChild(title);
+  if (drilldownStack.length > 0) {
+    let backBtn = document.createElement("button");
+    backBtn.textContent = "Back";
+    backBtn.className = "back-btn";
+    backBtn.addEventListener("click", () => {
+      let parent = drilldownStack.pop();
+      showDrilldown(parent);
+    });
+    headerDiv.appendChild(backBtn);
+  }
+  content.appendChild(headerDiv);
+
+  // If node has children, list them as cards.
+  if (node.children && node.children.length > 0) {
+    let grid = document.createElement("div");
+    grid.className = "item-grid";
+    node.children.forEach((child) => {
+      let card = document.createElement("div");
+      card.className = "item-card";
+      card.innerHTML = `<h3>${child.name}</h3>`;
+      // If this node has a numeric value (leaf D), also show it.
+      if (child.level === "D" && child.value !== undefined) {
+        card.innerHTML += `<p>Value: $${Math.abs(child.value).toLocaleString()}</p>`;
+      }
+      card.addEventListener("click", () => {
+        if (child.children && child.children.length > 0) {
+          drilldownStack.push(node);
+          showDrilldown(child);
+        } else {
+          // If leaf, show details.
+          showDetail(child);
+        }
+      });
+      grid.appendChild(card);
+    });
+    content.appendChild(grid);
+  } else {
+    // If no children, show details.
+    showDetail(node);
+  }
+}
+
+// Show details for a leaf node: a table of the item (or just text) plus a bar & pie chart if numeric data exists.
+function showDetail(node) {
   const content = document.getElementById("content");
   content.innerHTML = "";
   let headerDiv = document.createElement("div");
-  headerDiv.className = "detail-header";
+  headerDiv.className = "drilldown-header";
   let title = document.createElement("h2");
-  title.textContent = block.name;
+  title.textContent = node.name;
   headerDiv.appendChild(title);
   let backBtn = document.createElement("button");
   backBtn.textContent = "Back";
   backBtn.className = "back-btn";
-  backBtn.addEventListener("click", showHome);
+  backBtn.addEventListener("click", () => {
+    if (drilldownStack.length > 0) {
+      let parent = drilldownStack.pop();
+      showDrilldown(parent);
+    } else {
+      showHome();
+    }
+  });
   headerDiv.appendChild(backBtn);
   content.appendChild(headerDiv);
 
-  // Display a table of key–value entries.
-  let table = document.createElement("table");
-  let tbody = document.createElement("tbody");
-  block.children.forEach(child => {
-    if (child.type === "entry") {
-      let tr = document.createElement("tr");
-      let tdKey = document.createElement("td");
-      tdKey.textContent = child.key;
-      let tdVal = document.createElement("td");
-      tdVal.textContent = (typeof child.value === "number")
-        ? "$" + child.value.toLocaleString()
-        : child.value;
-      tr.appendChild(tdKey);
-      tr.appendChild(tdVal);
-      tbody.appendChild(tr);
-    }
-  });
-  if (tbody.children.length > 0) {
-    table.appendChild(tbody);
-    content.appendChild(table);
-  } else {
+  // If the node is a D–line with a value, display it.
+  if (node.level === "D" && node.value !== undefined) {
     let p = document.createElement("p");
-    p.textContent = "No detailed entries available.";
+    p.textContent = `Value: $${Math.abs(node.value).toLocaleString()}`;
     content.appendChild(p);
   }
-
-  // If there is numeric data, create a couple of charts.
-  let numericEntries = block.children.filter(child => child.type === "entry" && typeof child.value === "number");
-  if (numericEntries.length > 0) {
-    let chartGrid = document.createElement("div");
-    chartGrid.className = "chart-grid";
-    
-    // Bar Chart
-    let barDiv = document.createElement("div");
-    barDiv.className = "chart-container";
-    chartGrid.appendChild(barDiv);
-    let barData = [{
-      x: numericEntries.map(e => e.key),
-      y: numericEntries.map(e => e.value),
-      type: "bar"
-    }];
-    let barLayout = { title: "Bar Chart: " + block.name };
-    Plotly.newPlot(barDiv, barData, barLayout);
-
-    // Pie Chart
-    let pieDiv = document.createElement("div");
-    pieDiv.className = "chart-container";
-    chartGrid.appendChild(pieDiv);
-    let pieData = [{
-      values: numericEntries.map(e => e.value),
-      labels: numericEntries.map(e => e.key),
-      type: "pie",
-      textinfo: "label+percent"
-    }];
-    let pieLayout = { title: "Pie Chart: " + block.name };
-    Plotly.newPlot(pieDiv, pieData, pieLayout);
-
-    content.appendChild(chartGrid);
-  }
+  // Optionally, if there are additional properties, you could show a table.
 }
 
-// Executive Review view: Displays red flag narratives and supporting charts.
-function showExecutiveReview() {
-  const content = document.getElementById("content");
-  content.innerHTML = "<h2>Executive Review: Red Flags & Questionable Allocations</h2>";
-  let backBtn = document.createElement("button");
-  backBtn.textContent = "Back";
-  backBtn.className = "back-btn";
-  backBtn.addEventListener("click", showHome);
-  content.appendChild(backBtn);
-
-  let reviewDiv = document.createElement("div");
-  reviewDiv.className = "review-section";
-
-  // 1. Extremely High Administrative Overhead
-  let adminFlag = document.createElement("div");
-  adminFlag.className = "red-flag";
-  adminFlag.innerHTML = `<h4>1. Extremely High Administrative Overhead</h4>
-    <p>Student Salaries + Stipends + Career Employee Salaries = Over $3.3M+</p>
-    <p>This is approximately 37.4% of the total revenue of $8.83M.</p>`;
-  reviewDiv.appendChild(adminFlag);
-  // Compute overhead using blocks (if available)
-  let careerBlock = getBlockByName(parsedData, "CAREER EMPLOYEES");
-  let studentSalariesBlock = getBlockByName(parsedData, "STUDENT SALARIES SUMMARY");
-  let studentStipendsBlock = getBlockByName(parsedData, "STUDENT STIPENDS");
-  let careerTotal = careerBlock ? (getTotalFromBlockTitle(careerBlock) || sumEntries(careerBlock)) : 0;
-  let studentSalariesTotal = studentSalariesBlock ? (getTotalFromBlockTitle(studentSalariesBlock) || sumEntries(studentSalariesBlock)) : 0;
-  let studentStipendsTotal = studentStipendsBlock ? sumEntries(studentStipendsBlock) : 285000; // fallback value
-  let adminOverhead = careerTotal + studentSalariesTotal + studentStipendsTotal;
-  let revenueBlock = getBlockByName(parsedData, "BUDGET SUMMARY");
-  let revenue = 8834339; // default revenue
-  if (revenueBlock) {
-    let revEntry = revenueBlock.children.find(e => e.type === "entry" && e.key.includes("AS Revenue"));
-    if (revEntry && typeof revEntry.value === "number") {
-      revenue = revEntry.value;
-    }
-  }
-  let nonAdmin = revenue - adminOverhead;
-  let adminChartDiv = document.createElement("div");
-  adminChartDiv.className = "chart-container";
-  reviewDiv.appendChild(adminChartDiv);
-  let adminData = [{
-    values: [adminOverhead, nonAdmin],
-    labels: ["Admin Overhead", "Other Spending"],
-    type: "pie",
-    textinfo: "label+percent"
-  }];
-  let adminLayout = { title: "Administrative Overhead vs. Other Spending" };
-  Plotly.newPlot(adminChartDiv, adminData, adminLayout);
-
-  // 2. Bloated Management Structures
-  let managementFlag = document.createElement("div");
-  managementFlag.className = "red-flag";
-  managementFlag.innerHTML = `<h4>2. Bloated Management Structures</h4>
-    <p>Dozens of AVPs, Directors, Coordinators, etc. with high cost relative to small programming budgets.</p>`;
-  reviewDiv.appendChild(managementFlag);
-  let managementChartDiv = document.createElement("div");
-  managementChartDiv.className = "chart-container";
-  reviewDiv.appendChild(managementChartDiv);
-  // Simulated data for demonstration
-  let managementData = [{
-    x: ["AVP", "Director", "Coordinator", "Chief of Staff"],
-    y: [5, 10, 8, 6],
-    type: "bar"
-  }];
-  let managementLayout = { title: "Management Roles Count (Simulated)" };
-  Plotly.newPlot(managementChartDiv, managementData, managementLayout);
-
-  // 3. Too Many “Micro-Stipends”
-  let stipendsFlag = document.createElement("div");
-  stipendsFlag.className = "red-flag";
-  stipendsFlag.innerHTML = `<h4>3. Too Many “Micro-Stipends”</h4>
-    <p>Multiple roles receiving $500–$1,500 annually.</p>`;
-  reviewDiv.appendChild(stipendsFlag);
-  let stipendsChartDiv = document.createElement("div");
-  stipendsChartDiv.className = "chart-container";
-  reviewDiv.appendChild(stipendsChartDiv);
-  // Simulated data for micro-stipends
-  let stipendsData = [{
-    x: ["Role A", "Role B", "Role C", "Role D"],
-    y: [3, 4, 2, 5],
-    type: "bar"
-  }];
-  let stipendsLayout = { title: "Micro-Stipends Distribution (Simulated)" };
-  Plotly.newPlot(stipendsChartDiv, stipendsData, stipendsLayout);
-
-  // 4. Unclear or Vague Categories
-  let vagueFlag = document.createElement("div");
-  vagueFlag.className = "red-flag";
-  vagueFlag.innerHTML = `<h4>4. Unclear or Vague Categories</h4>
-    <p>Overuse of terms like “Projects and Initiatives”, “Marketing and Outreach”, etc.</p>`;
-  reviewDiv.appendChild(vagueFlag);
-
-  // 5. Event Spending vs. Program Spending Imbalance
-  let eventFlag = document.createElement("div");
-  eventFlag.className = "red-flag";
-  eventFlag.innerHTML = `<h4>5. Event Spending vs. Program Spending Imbalance</h4>
-    <p>Events receive roughly 10× more funding than basic needs or long-term support.</p>`;
-  reviewDiv.appendChild(eventFlag);
-  let eventChartDiv = document.createElement("div");
-  eventChartDiv.className = "chart-container";
-  reviewDiv.appendChild(eventChartDiv);
-  // Simulated comparison data
-  let eventData = [{
-    x: ["Event Spending", "Program Spending"],
-    y: [385000, 60000],
-    type: "bar"
-  }];
-  let eventLayout = { title: "Event vs. Program Spending (Simulated)" };
-  Plotly.newPlot(eventChartDiv, eventData, eventLayout);
-
-  // 6. Redundant Roles with High Cost
-  let redundantFlag = document.createElement("div");
-  redundantFlag.className = "red-flag";
-  redundantFlag.innerHTML = `<h4>6. Redundant Roles with High Cost</h4>
-    <p>Multiple similar roles across the organization, inflating overhead.</p>`;
-  reviewDiv.appendChild(redundantFlag);
-  let redundantChartDiv = document.createElement("div");
-  redundantChartDiv.className = "chart-container";
-  reviewDiv.appendChild(redundantChartDiv);
-  let redundantData = [{
-    type: "treemap",
-    labels: ["Graphic Artists", "Sr. Graphic Artists", "Chiefs of Staff", "Marketing Coordinators"],
-    parents: ["", "", "", ""],
-    values: [3, 2, 4, 5],
-    textinfo: "label+value"
-  }];
-  let redundantLayout = { title: "Redundant Roles Breakdown (Simulated)" };
-  Plotly.newPlot(redundantChartDiv, [redundantData], redundantLayout);
-
-  // 7. Lack of Prioritization: High Overhead, Low Impact
-  let prioritizationFlag = document.createElement("div");
-  prioritizationFlag.className = "red-flag";
-  prioritizationFlag.innerHTML = `<h4>7. Lack of Prioritization: High Overhead, Low Impact</h4>
-    <p>Spending is heavily internal-facing with little emphasis on student services.</p>`;
-  reviewDiv.appendChild(prioritizationFlag);
-
-  // 8. No Budgeting by Outcomes
-  let outcomesFlag = document.createElement("div");
-  outcomesFlag.className = "red-flag";
-  outcomesFlag.innerHTML = `<h4>8. No Budgeting by Outcomes</h4>
-    <p>Flat figures with no apparent cost-benefit analysis or impact assessment.</p>`;
-  reviewDiv.appendChild(outcomesFlag);
-
-  // 9. Minimal Contingency Planning
-  let contingencyFlag = document.createElement("div");
-  contingencyFlag.className = "red-flag";
-  contingencyFlag.innerHTML = `<h4>9. Minimal Contingency Planning</h4>
-    <p>Only $20K listed for contingency with no clear emergency fund.</p>`;
-  reviewDiv.appendChild(contingencyFlag);
-
-  content.appendChild(reviewDiv);
-}
