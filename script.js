@@ -1,40 +1,27 @@
 /* script.js */
 
-// We'll replace d3.csv(...) with d3.text(...), so we can manually parse rows.
+// Global variables to store the full dataset and currently filtered data
+let allData = [];
+let filteredData = [];
+
+// CSV file path
 const dataFile = "data.csv";
 
+// Load and parse CSV data
 d3.text(dataFile).then(function(rawText) {
   // Convert raw CSV text into an array of rows (each row is an array of column values)
   let rows = d3.csvParseRows(rawText);
-
-  // We'll create a new array with the data we actually want
   let parsedData = [];
 
   rows.forEach((r) => {
-    // 'r' is an array of strings for one line.
-    // For example, r might look like:
-    // [
-    //   "Office of the President",
-    //   "",
-    //   "",
-    //   "",
-    //   "($ 70,999.60)"
-    // ]
-
     if (!r || r.length === 0) return; // Skip empty lines
 
-    // Let's assume the last column might be an amount if it includes '($'
+    // Assume the last column might be an amount if it includes '($'
     const lastCol = r[r.length - 1];
     if (lastCol && lastCol.includes("($")) {
-      // Attempt to parse the last column as a negative or positive number
-      // e.g. ($ 70,999.60) => -70999.60 or 70999.60, depending on how you want to handle parentheses.
-      let numeric = parseFloat(lastCol.replace(/[^\d.-]/g, "")); 
-      // This strips out all non-numeric characters except digits, '.' and '-'
-
-      // Use the first column as a "Category"
+      // Parse the last column as a numeric value (parentheses indicate a negative number)
+      let numeric = parseFloat(lastCol.replace(/[^\d.-]/g, ""));
       let category = r[0] ? r[0].trim() : "Unlabeled";
-
-      // Only push if numeric is valid
       if (!isNaN(numeric)) {
         parsedData.push({
           Category: category,
@@ -44,63 +31,35 @@ d3.text(dataFile).then(function(rawText) {
     }
   });
 
-  // Now 'parsedData' is an array of objects with {Category, Amount} for each line we recognized
-  console.log("Parsed Data:", parsedData);
+  // Set global variables for the full dataset and initialize filteredData
+  allData = parsedData;
+  filteredData = allData;
 
-  // If you want to pass this data into the rest of your dashboard code, you can do so:
-  // For example, pretend 'filteredData' is our final array:
-  let filteredData = parsedData; // or apply additional filters if you want
+  console.log("Parsed Data:", allData);
 
-  // Then we can do the same steps as your original code:
+  // Populate the filter dropdown options
+  createFilterOptions(allData);
+
+  // Update the dashboard with the initial full dataset
   updateSummaryMetrics(filteredData);
   updateVisualizations(filteredData);
-  
-  // (We define these below; basically the same logic from your original code,
-  //  but we remove the d3.csv(...) call, because we’ve replaced it.)
 });
-
-// The rest of your code for updateSummaryMetrics, updateVisualizations, etc.
-// Just as in your existing script, but remove the original d3.csv(...) block
-// and make sure you define or copy your createBarChart, createTreemap, etc. functions.
-
-function updateSummaryMetrics(data) {
-  let total = d3.sum(data, d => d.Amount);
-  let avg = d3.mean(data, d => d.Amount);
-  let maxEntry = data.reduce((a, b) => a.Amount > b.Amount ? a : b, {Amount: 0, Category: "N/A"});
-  document.getElementById("totalSpending").textContent = total.toFixed(2);
-  document.getElementById("averageSpending").textContent = avg.toFixed(2);
-  document.getElementById("maxCategory").textContent = maxEntry.Category + " ($" + maxEntry.Amount + ")";
-}
-
-function updateVisualizations(data) {
-  // Group data by Category for aggregated charts
-  const aggregatedData = d3.nest()
-    .key(d => d.Category)
-    .rollup(v => d3.sum(v, d => d.Amount))
-    .entries(data);
-
-  createBarChart(aggregatedData);
-  createTreemap(aggregatedData);
-  createSankey(aggregatedData);
-  createWaterfall(aggregatedData);
-  createScatterChart(data);
-  createPieChart(aggregatedData);
-  populateDataTable(data);
-}
-
-// (Paste your existing createBarChart, createTreemap, createSankey, etc. below…)
-// ...
-
 
 // Create dropdown options based on unique categories from the data
 function createFilterOptions(data) {
   const select = document.getElementById("categoryFilter");
+  // Clear any existing options
+  select.innerHTML = "";
   let categories = [...new Set(data.map(d => d.Category))];
   categories.sort();
-  let option = document.createElement("option");
-  option.value = "All";
-  option.text = "All Categories";
-  select.appendChild(option);
+  
+  // Create "All Categories" option
+  let allOption = document.createElement("option");
+  allOption.value = "All";
+  allOption.text = "All Categories";
+  select.appendChild(allOption);
+  
+  // Create an option for each category
   categories.forEach(cat => {
     let opt = document.createElement("option");
     opt.value = cat;
@@ -109,25 +68,6 @@ function createFilterOptions(data) {
   });
 }
 
-// Event listeners for filter dropdown and reset button
-document.getElementById("categoryFilter").addEventListener("change", function() {
-  let selected = this.value;
-  if (selected === "All") {
-    filteredData = allData;
-  } else {
-    filteredData = allData.filter(d => d.Category === selected);
-  }
-  updateSummaryMetrics(filteredData);
-  updateVisualizations(filteredData);
-});
-
-document.getElementById("resetFilter").addEventListener("click", function() {
-  document.getElementById("categoryFilter").value = "All";
-  filteredData = allData;
-  updateSummaryMetrics(filteredData);
-  updateVisualizations(filteredData);
-});
-
 // Update summary metrics (total, average, highest spending)
 function updateSummaryMetrics(data) {
   let total = d3.sum(data, d => d.Amount);
@@ -135,12 +75,12 @@ function updateSummaryMetrics(data) {
   let maxEntry = data.reduce((a, b) => a.Amount > b.Amount ? a : b, {Amount: 0, Category: "N/A"});
   document.getElementById("totalSpending").textContent = total.toFixed(2);
   document.getElementById("averageSpending").textContent = avg.toFixed(2);
-  document.getElementById("maxCategory").textContent = maxEntry.Category + " ($" + maxEntry.Amount + ")";
+  document.getElementById("maxCategory").textContent = maxEntry.Category + " ($" + maxEntry.Amount.toFixed(2) + ")";
 }
 
 // Update all visualizations based on the (filtered) data
 function updateVisualizations(data) {
-  // Aggregate data by category for charts that require it
+  // Aggregate data by Category for visualizations that need it
   const aggregatedData = d3.nest()
     .key(d => d.Category)
     .rollup(v => d3.sum(v, d => d.Amount))
@@ -154,6 +94,28 @@ function updateVisualizations(data) {
   createPieChart(aggregatedData);
   populateDataTable(data);
 }
+
+// Event listener for filter dropdown
+document.getElementById("categoryFilter").addEventListener("change", function() {
+  let selected = this.value;
+  if (selected === "All") {
+    filteredData = allData;
+  } else {
+    filteredData = allData.filter(d => d.Category === selected);
+  }
+  updateSummaryMetrics(filteredData);
+  updateVisualizations(filteredData);
+});
+
+// Event listener for the reset filter button
+document.getElementById("resetFilter").addEventListener("click", function() {
+  document.getElementById("categoryFilter").value = "All";
+  filteredData = allData;
+  updateSummaryMetrics(filteredData);
+  updateVisualizations(filteredData);
+});
+
+// Visualization Functions
 
 // Bar Chart: Spending by Category
 function createBarChart(aggregatedData) {
@@ -243,7 +205,7 @@ function createScatterChart(data) {
     y: data.map(d => d.Amount),
     mode: 'markers',
     marker: {
-      size: data.map(d => Math.sqrt(d.Amount) * 5) // Scale bubble size appropriately
+      size: data.map(d => Math.sqrt(Math.abs(d.Amount)) * 5) // Scale bubble size (ensure positive sizes)
     },
     text: data.map(d => d.Category)
   };
@@ -273,7 +235,7 @@ function createPieChart(aggregatedData) {
 // Populate an interactive data table with raw CSV data
 function populateDataTable(data) {
   const tbody = document.querySelector("#dataTable tbody");
-  tbody.innerHTML = "";  // Clear any existing rows
+  tbody.innerHTML = "";  // Clear existing rows
   data.forEach(d => {
     const tr = document.createElement("tr");
     
