@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <title>Student Government Spending Analysis</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Plotly & D3 Libraries -->
+  <!-- Include Plotly for visualizations -->
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <!-- Include D3 for CSV parsing and data manipulation -->
   <script src="https://d3js.org/d3.v5.min.js"></script>
 </head>
 <body>
@@ -20,9 +21,6 @@
       <select id="categoryFilter"></select>
       <button id="resetFilter">Reset Filter</button>
     </div>
-    <div class="download">
-      <button id="downloadData">Download CSV</button>
-    </div>
     <div id="summaryMetrics">
       <h2>Summary Metrics</h2>
       <p>Total Spending: $<span id="totalSpending"></span></p>
@@ -31,61 +29,46 @@
     </div>
   </section>
 
-  <!-- Navigation Menu -->
+  <!-- Navigation for different visualization sections -->
   <nav>
     <ul>
       <li><a href="#bar-chart">Bar Chart</a></li>
       <li><a href="#treemap">Treemap</a></li>
-      <li><a href="#sankey">Sankey</a></li>
-      <li><a href="#waterfall">Waterfall</a></li>
-      <li><a href="#scatter">Scatter</a></li>
-      <li><a href="#pie">Pie</a></li>
-      <li><a href="#histogram">Histogram</a></li>
-      <li><a href="#boxplot">Box Plot</a></li>
-      <li><a href="#donut">Donut</a></li>
+      <li><a href="#sankey">Sankey Diagram</a></li>
+      <li><a href="#waterfall">Waterfall Chart</a></li>
+      <li><a href="#scatter">Scatter/Bubble Chart</a></li>
+      <li><a href="#pie">Pie Chart</a></li>
       <li><a href="#data-table">Data Table</a></li>
     </ul>
   </nav>
 
   <!-- Main Content with Visualizations -->
   <main>
-    <section id="bar-chart" class="chart-section">
+    <section id="bar-chart">
       <h2>Spending by Category (Bar Chart)</h2>
       <div id="barChart"></div>
     </section>
-    <section id="treemap" class="chart-section">
+    <section id="treemap">
       <h2>Spending Distribution (Treemap)</h2>
       <div id="treemapChart"></div>
     </section>
-    <section id="sankey" class="chart-section">
+    <section id="sankey">
       <h2>Sankey Diagram of Fund Flow</h2>
       <div id="sankeyChart"></div>
     </section>
-    <section id="waterfall" class="chart-section">
+    <section id="waterfall">
       <h2>Waterfall Chart of Spending</h2>
       <div id="waterfallChart"></div>
     </section>
-    <section id="scatter" class="chart-section">
+    <section id="scatter">
       <h2>Scatter/Bubble Chart of Spending</h2>
       <div id="scatterChart"></div>
     </section>
-    <section id="pie" class="chart-section">
+    <section id="pie">
       <h2>Pie Chart of Spending Distribution</h2>
       <div id="pieChart"></div>
     </section>
-    <section id="histogram" class="chart-section">
-      <h2>Histogram of Spending Amounts</h2>
-      <div id="histogramChart"></div>
-    </section>
-    <section id="boxplot" class="chart-section">
-      <h2>Box Plot of Spending by Category</h2>
-      <div id="boxPlotChart"></div>
-    </section>
-    <section id="donut" class="chart-section">
-      <h2>Donut Chart of Spending Breakdown</h2>
-      <div id="donutChart"></div>
-    </section>
-    <section id="data-table" class="chart-section">
+    <section id="data-table">
       <h2>Interactive Data Table</h2>
       <table id="dataTable">
         <thead>
@@ -95,12 +78,11 @@
           </tr>
         </thead>
         <tbody>
-          <!-- Rows will be inserted dynamically -->
+          <!-- Table rows will be inserted dynamically -->
         </tbody>
       </table>
     </section>
   </main>
-
   <script src="script.js"></script>
 </body>
 </html>
