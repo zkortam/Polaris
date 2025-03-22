@@ -3,27 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Student Spending Visualizations</title>
+    <title>Executive Budget Review Dashboard</title>
     <link rel="stylesheet" href="style.css" />
-    <!-- Plotly for all charts -->
+    <!-- Plotly for charts -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   </head>
   <body>
     <header>
-      <h1>Student Spending Visualizations</h1>
-      <p>Interactive dashboard showing multiple chart types to explore student spending.</p>
+      <h1>Executive Budget Financial Review (2024–2025)</h1>
+      <nav>
+        <button id="homeBtn">Home</button>
+        <button id="reviewBtn">Executive Review</button>
+      </nav>
     </header>
-    <main>
-      <div class="charts-grid">
-        <div class="chart-container" id="stackedBarChart"></div>
-        <div class="chart-container" id="mekkoChart"></div>
-        <div class="chart-container" id="pieChart"></div>
-        <div class="chart-container" id="bubbleChart"></div>
-        <div class="chart-container" id="waterfallChart"></div>
-        <div class="chart-container" id="heatMap"></div>
-        <div class="chart-container" id="treemapChart"></div>
-        <div class="chart-container" id="sankeyChart"></div>
-      </div>
+    <main id="content">
+      <!-- Main content injected dynamically -->
     </main>
     <script src="script.js"></script>
   </body>
