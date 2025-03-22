@@ -1,25 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Data Visualizations</title>
-  <link rel="stylesheet" href="style.css" />
-  <!-- Chart.js for bar charts -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-  <header>
-    <h1>Data Visualizations</h1>
-  </header>
-  <div id="container">
-    <aside id="sidebar">
-      <!-- The tree view will be generated here -->
-    </aside>
-    <main id="main">
-      <p>Select a node from the tree to see details and visualizations.</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Spending Visualizations</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- Plotly for all charts -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>Student Spending Visualizations</h1>
+      <p>Interactive dashboard showing multiple chart types to explore student spending.</p>
+    </header>
+    <main>
+      <div class="charts-grid">
+        <div class="chart-container" id="stackedBarChart"></div>
+        <div class="chart-container" id="mekkoChart"></div>
+        <div class="chart-container" id="pieChart"></div>
+        <div class="chart-container" id="bubbleChart"></div>
+        <div class="chart-container" id="waterfallChart"></div>
+        <div class="chart-container" id="heatMap"></div>
+        <div class="chart-container" id="treemapChart"></div>
+        <div class="chart-container" id="sankeyChart"></div>
+      </div>
     </main>
-  </div>
-  <script src="script.js"></script>
-</body>
+    <script src="script.js"></script>
+  </body>
 </html>
