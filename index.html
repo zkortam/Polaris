@@ -2,87 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Student Government Spending Analysis</title>
+  <title>Student Government Budget Breakdown</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Include Plotly for visualizations -->
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <!-- Include D3 for CSV parsing and data manipulation -->
-  <script src="https://d3js.org/d3.v5.min.js"></script>
 </head>
 <body>
   <header>
-    <h1>Student Government Spending Analysis</h1>
+    <h1>Student Government Budget Breakdown</h1>
   </header>
-
-  <!-- Dashboard Controls -->
-  <section id="controls">
-    <div class="filter">
-      <label for="categoryFilter">Filter by Category:</label>
-      <select id="categoryFilter"></select>
-      <button id="resetFilter">Reset Filter</button>
-    </div>
-    <div id="summaryMetrics">
-      <h2>Summary Metrics</h2>
-      <p>Total Spending: $<span id="totalSpending"></span></p>
-      <p>Average Spending: $<span id="averageSpending"></span></p>
-      <p>Highest Spending Category: <span id="maxCategory"></span></p>
-    </div>
-  </section>
-
-  <!-- Navigation for different visualization sections -->
-  <nav>
-    <ul>
-      <li><a href="#bar-chart">Bar Chart</a></li>
-      <li><a href="#treemap">Treemap</a></li>
-      <li><a href="#sankey">Sankey Diagram</a></li>
-      <li><a href="#waterfall">Waterfall Chart</a></li>
-      <li><a href="#scatter">Scatter/Bubble Chart</a></li>
-      <li><a href="#pie">Pie Chart</a></li>
-      <li><a href="#data-table">Data Table</a></li>
-    </ul>
-  </nav>
-
-  <!-- Main Content with Visualizations -->
   <main>
-    <section id="bar-chart">
-      <h2>Spending by Category (Bar Chart)</h2>
-      <div id="barChart"></div>
-    </section>
-    <section id="treemap">
-      <h2>Spending Distribution (Treemap)</h2>
-      <div id="treemapChart"></div>
-    </section>
-    <section id="sankey">
-      <h2>Sankey Diagram of Fund Flow</h2>
-      <div id="sankeyChart"></div>
-    </section>
-    <section id="waterfall">
-      <h2>Waterfall Chart of Spending</h2>
-      <div id="waterfallChart"></div>
-    </section>
-    <section id="scatter">
-      <h2>Scatter/Bubble Chart of Spending</h2>
-      <div id="scatterChart"></div>
-    </section>
-    <section id="pie">
-      <h2>Pie Chart of Spending Distribution</h2>
-      <div id="pieChart"></div>
-    </section>
-    <section id="data-table">
-      <h2>Interactive Data Table</h2>
-      <table id="dataTable">
-        <thead>
-          <tr>
-            <!-- Adjust the column headings as needed -->
-            <th>Category</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Table rows will be inserted dynamically -->
-        </tbody>
-      </table>
-    </section>
+    <!-- The contents of data.txt (formatted with nested brackets/curly braces) will be loaded here -->
+    <pre id="dataDisplay">Loading data...</pre>
   </main>
   <script src="script.js"></script>
 </body>
