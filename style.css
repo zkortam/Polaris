@@ -1,0 +1,86 @@
+/* style.css */
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  
+  header {
+    background-color: #333;
+    color: white;
+    padding: 1rem;
+    text-align: center;
+  }
+  
+  /* Dashboard Controls */
+  #controls {
+    background: #f9f9f9;
+    padding: 1rem;
+    border-bottom: 1px solid #ccc;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    align-items: center;
+  }
+  
+  .filter {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  
+  .filter label {
+    margin-right: 0.5rem;
+  }
+  
+  #summaryMetrics {
+    text-align: center;
+  }
+  
+  /* Navigation Styling */
+  nav {
+    background-color: #f4f4f4;
+    padding: 1rem;
+  }
+  
+  nav ul {
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    padding: 0;
+    margin: 0;
+  }
+  
+  nav ul li a {
+    text-decoration: none;
+    color: #333;
+    font-weight: bold;
+  }
+  
+  /* Main Content */
+  main {
+    padding: 1rem;
+  }
+  
+  section {
+    margin-bottom: 2rem;
+  }
+  
+  /* Data Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+  }
+  
+  table, th, td {
+    border: 1px solid #ccc;
+  }
+  
+  th, td {
+    padding: 0.5rem;
+    text-align: left;
+  }
+  
