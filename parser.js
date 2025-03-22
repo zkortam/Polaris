@@ -1,10 +1,9 @@
-// parser.js
-// Exports functions to parse your hierarchical data structure.
-export function parseStructuredData(lines, index) {
+export function parseStructuredData(lines, index = 0) {
     let items = [];
     while (index < lines.length) {
       let line = lines[index].trim();
-      if (!line) {
+      // Skip empty lines or lines that start with separator (e.g., "---")
+      if (!line || line.startsWith("---")) {
         index++;
         continue;
       }
@@ -12,14 +11,14 @@ export function parseStructuredData(lines, index) {
         index++;
         break;
       }
-      // Match levels A through E. For example: "A: OPERATING RESERVES {" or "D: Total Reserves | $1,189,555.55"
+      // Match group lines (e.g., "A: NAME {" or "D: Item Name | $value")
       let groupMatch = line.match(/^([A-E]):\s*(.+?)(\s*\{)?$/);
       if (groupMatch) {
         let level = groupMatch[1];
         let namePart = groupMatch[2].trim();
         let hasBrace = groupMatch[3] && groupMatch[3].includes("{");
         if (hasBrace) {
-          // Container group: recursively parse children.
+          // Container node – recursively parse children
           let node = { level, name: namePart, children: [] };
           index++;
           let result = parseStructuredData(lines, index);
@@ -27,7 +26,7 @@ export function parseStructuredData(lines, index) {
           index = result[1];
           items.push(node);
         } else {
-          // Leaf node: check for a separator (| or –) to extract a value.
+          // Check for value separator ("|" or "–")
           let leafMatch = line.match(/^([A-E]):\s*(.+?)\s*(\||–)\s*(.*)$/);
           if (leafMatch) {
             let leafLevel = leafMatch[1];
@@ -36,12 +35,13 @@ export function parseStructuredData(lines, index) {
             let value = valueStr ? parseValue(valueStr) : null;
             items.push({ level: leafLevel, name: leafName, value });
           } else {
+            // Leaf with no value
             items.push({ level: groupMatch[1], name: namePart });
           }
           index++;
         }
       } else {
-        console.warn(`Unparsed line: ${line}`);
+        console.warn("Unparsed line:", line);
         index++;
       }
     }

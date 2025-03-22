@@ -1,7 +1,4 @@
-// visualizations.js
-// Exports functions that create a variety of Plotly charts.
-
-// Helper functions.
+// Helper functions
 export function sumGroup(node) {
     let sum = 0;
     if (node.children && node.children.length > 0) {
@@ -22,10 +19,9 @@ export function sumGroup(node) {
     return "#FF6666"; // red for operational
   }
   
-  // Existing charts
+  // Original Visualizations
   
   export function createSankeyDiagram(budgetGroup) {
-    // Look inside budgetGroup: assume a B group ("General") then a C group ("Items")
     let items = [];
     if (budgetGroup.children && budgetGroup.children.length > 0) {
       let bGroup = budgetGroup.children.find(child => child.level === "B");
@@ -36,13 +32,9 @@ export function sumGroup(node) {
         }
       }
     }
-    // Identify revenue and spending items.
     let revenueItem = items.find(item => item.name.toUpperCase().includes("AS REVENUE"));
     if (!revenueItem) return;
-    let revenue = revenueItem.value;
-    let spendingItems = items.filter(item =>
-      item !== revenueItem && typeof item.value === "number" && item.value < 0
-    );
+    let spendingItems = items.filter(item => item !== revenueItem && typeof item.value === "number" && item.value < 0);
     let sources = [];
     let targets = [];
     let values = [];
@@ -138,10 +130,7 @@ export function sumGroup(node) {
     Plotly.newPlot("deficitGauge", data, layout);
   }
   
-  // Additional Visualizations
-  
   export function createStackedBarChart(budgetGroup) {
-    // Use the same items from BUDGET SUMMARY.
     let items = [];
     if (budgetGroup.children && budgetGroup.children.length > 0) {
       let bGroup = budgetGroup.children.find(child => child.level === "B");
@@ -152,7 +141,6 @@ export function sumGroup(node) {
         }
       }
     }
-    // Exclude revenue (AS Revenue) and use spending items.
     let revenueItem = items.find(item => item.name.toUpperCase().includes("AS REVENUE"));
     let spendingItems = items.filter(item => item !== revenueItem && typeof item.value === "number");
     let labels = spendingItems.map(item => item.name);
@@ -191,7 +179,8 @@ export function sumGroup(node) {
       values: values,
       labels: labels,
       type: "pie",
-      textinfo: "label+percent"
+      textinfo: "label+percent",
+      hole: 0.3
     }];
     let layout = { title: "Pie Chart: Spending Distribution" };
     Plotly.newPlot("pieChart", data, layout);
@@ -247,11 +236,7 @@ export function sumGroup(node) {
     }
     let revenueItem = items.find(item => item.name.toUpperCase().includes("AS REVENUE"));
     if (!revenueItem) return;
-    let revenue = revenueItem.value;
-    // For waterfall, use spending items and compute cumulative values.
-    let spendingItems = items.filter(item =>
-      item !== revenueItem && typeof item.value === "number" && item.value < 0
-    );
+    let spendingItems = items.filter(item => item !== revenueItem && typeof item.value === "number" && item.value < 0);
     let measures = spendingItems.map(() => "relative");
     let x = spendingItems.map(item => item.name);
     let y = spendingItems.map(item => Math.abs(item.value));
@@ -278,7 +263,6 @@ export function sumGroup(node) {
         }
       }
     }
-    // Create a grid: e.g. 4 columns.
     const columns = 4;
     const rows = Math.ceil(items.length / columns);
     let z = [];
@@ -309,5 +293,66 @@ export function sumGroup(node) {
       title: "Heatmap: Spending Items Grid"
     };
     Plotly.newPlot("heatmapChart", data, layout);
+  }
+  
+  // Additional Visualizations
+  
+  // Donut Chart – a pie chart with a larger hole
+  export function createDonutChart(budgetGroup) {
+    let items = [];
+    if (budgetGroup.children && budgetGroup.children.length > 0) {
+      let bGroup = budgetGroup.children.find(child => child.level === "B");
+      if (bGroup && bGroup.children) {
+        let cGroup = bGroup.children.find(child => child.level === "C");
+        if (cGroup && cGroup.children) {
+          items = cGroup.children.filter(child => child.level === "D" && child.value !== undefined);
+        }
+      }
+    }
+    let revenueItem = items.find(item => item.name.toUpperCase().includes("AS REVENUE"));
+    let spendingItems = items.filter(item => item !== revenueItem && typeof item.value === "number");
+    let labels = spendingItems.map(item => item.name);
+    let values = spendingItems.map(item => Math.abs(item.value));
+    let data = [{
+      values: values,
+      labels: labels,
+      type: "pie",
+      hole: 0.6,
+      textinfo: "label+percent"
+    }];
+    let layout = { title: "Donut Chart: Spending Distribution" };
+    Plotly.newPlot("donutChart", data, layout);
+  }
+  
+  // Line Chart – plots spending amounts sequentially
+  export function createLineChart(budgetGroup) {
+    let items = [];
+    if (budgetGroup.children && budgetGroup.children.length > 0) {
+      let bGroup = budgetGroup.children.find(child => child.level === "B");
+      if (bGroup && bGroup.children) {
+        let cGroup = bGroup.children.find(child => child.level === "C");
+        if (cGroup && cGroup.children) {
+          items = cGroup.children.filter(child => child.level === "D" && child.value !== undefined);
+        }
+      }
+    }
+    let revenueItem = items.find(item => item.name.toUpperCase().includes("AS REVENUE"));
+    let spendingItems = items.filter(item => item !== revenueItem && typeof item.value === "number");
+    let x = spendingItems.map((item, i) => i + 1);
+    let y = spendingItems.map(item => Math.abs(item.value));
+    let data = [{
+      x: x,
+      y: y,
+      type: "scatter",
+      mode: "lines+markers",
+      marker: { size: 8 },
+      line: { shape: "linear" }
+    }];
+    let layout = {
+      title: "Line Chart: Spending Sequence",
+      xaxis: { title: "Item Index" },
+      yaxis: { title: "Spending Amount" }
+    };
+    Plotly.newPlot("lineChart", data, layout);
   }
   

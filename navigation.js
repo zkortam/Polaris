@@ -1,11 +1,8 @@
-// navigation.js
-// Exports functions for the drill–down navigation.
-
-export function showDrilldown(node, drilldownStack) {
+export function showDrilldown(node, drilldownStack = []) {
     const content = document.getElementById("content");
     content.innerHTML = "";
-    
-    // Header with current node title and Back button.
+  
+    // Header with title and Back button if applicable.
     let headerDiv = document.createElement("div");
     headerDiv.className = "drilldown-header";
     let title = document.createElement("h2");
@@ -22,7 +19,7 @@ export function showDrilldown(node, drilldownStack) {
       headerDiv.appendChild(backBtn);
     }
     content.appendChild(headerDiv);
-    
+  
     // Display children as clickable cards.
     if (node.children && node.children.length > 0) {
       let grid = document.createElement("div");
@@ -50,7 +47,7 @@ export function showDrilldown(node, drilldownStack) {
     }
   }
   
-  export function showDetail(node, drilldownStack) {
+  export function showDetail(node, drilldownStack = []) {
     const content = document.getElementById("content");
     content.innerHTML = "";
     let headerDiv = document.createElement("div");
@@ -71,7 +68,7 @@ export function showDrilldown(node, drilldownStack) {
     });
     headerDiv.appendChild(backBtn);
     content.appendChild(headerDiv);
-    
+  
     if ((node.level === "D" || node.level === "E") && node.value !== undefined) {
       let p = document.createElement("p");
       p.textContent = `Value: $${Math.abs(node.value).toLocaleString()}`;

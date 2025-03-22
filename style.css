@@ -1,38 +1,57 @@
-/* General Styles */
+/* Basic Reset & Fonts */
 body {
     margin: 0;
-    font-family: Arial, sans-serif;
-    background: #f9f9f9;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f2f2f2;
   }
+  
+  /* Header Styles */
   header {
-    background: #333;
-    color: #fff;
+    background: #2c3e50;
+    color: #ecf0f1;
     padding: 1em;
     text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
   header h1 {
     margin: 0;
   }
+  
+  /* Navigation */
   nav {
     margin-top: 0.5em;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1em;
+    flex-wrap: wrap;
   }
   nav button {
-    background: #555;
-    color: #fff;
+    background: #34495e;
+    color: #ecf0f1;
     border: none;
     padding: 0.5em 1em;
-    margin: 0 0.5em;
-    cursor: pointer;
     font-size: 1em;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
   }
   nav button:hover {
-    background: #777;
+    background: #3c6382;
   }
+  nav input[type="text"] {
+    padding: 0.5em;
+    border-radius: 5px;
+    border: 1px solid #bdc3c7;
+    font-size: 1em;
+  }
+  
+  /* Main Content */
   main {
     padding: 1em;
   }
   
-  /* Home Page Visualizations */
+  /* Visualization Grid */
   .visualization-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -43,28 +62,32 @@ body {
     background: #fff;
     border: 1px solid #ddd;
     padding: 0.5em;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     height: 400px;
   }
   
-  /* Drill–Down Selector Styles */
-  .drilldown-container {
-    margin-top: 1em;
-  }
+  /* Drill–Down & Interactive Elements */
   .drilldown-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 0.5em 0;
   }
   .drilldown-header h2 {
     margin: 0;
   }
   .back-btn {
-    background: #555;
-    color: #fff;
+    background: #34495e;
+    color: #ecf0f1;
     border: none;
     padding: 0.5em 1em;
     cursor: pointer;
-    margin-bottom: 1em;
+    border-radius: 5px;
+    transition: background 0.3s;
+  }
+  .back-btn:hover {
+    background: #3c6382;
   }
   .item-grid {
     display: grid;
@@ -76,14 +99,14 @@ body {
     background: #fff;
     border: 1px solid #ddd;
     padding: 1em;
+    border-radius: 8px;
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
   }
   .item-card:hover {
-    transform: scale(1.02);
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   }
-  
-  /* Table for details */
   table {
     width: 100%;
     border-collapse: collapse;
@@ -95,11 +118,5 @@ body {
   th, td {
     padding: 0.5em;
     text-align: left;
-  }
-  
-  /* Gauge additional styles */
-  .gauge-container {
-    margin-top: 1em;
-    height: 300px;
   }
   
