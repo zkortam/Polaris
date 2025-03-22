@@ -1,37 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Student Government Spending Analysis</title>
-  <link rel="stylesheet" href="style.css">
-  <!-- Load D3.js from CDN -->
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Visualizations</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Chart.js for bar charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
-    <h1>Student Government Spending Analysis</h1>
-    <p>
-      This analysis highlights questionable spending practices. For example, notice the huge Office Operations allocation (~$3.46M) compared to a much smaller General Operations budget (~$90k) and the very granular locked‐in allocations. Click on a category below to drill down and see its breakdown.
-    </p>
-    <button id="backButton" style="display:none;">Back</button>
+    <h1>Data Visualizations</h1>
   </header>
-
-  <!-- Containers for interactive visualizations -->
-  <div id="charts">
-    <div id="treemap" class="chart-container">
-      <h2 id="treemapTitle">Overall Spending Treemap</h2>
-      <!-- Treemap will render here -->
-    </div>
-    <div id="barChart" class="chart-container">
-      <h2 id="barChartTitle">Top-Level Spending Comparison</h2>
-      <!-- Bar chart will render here -->
-    </div>
-    <div id="pieChart" class="chart-container">
-      <h2 id="pieChartTitle">Spending Breakdown (Pie Chart)</h2>
-      <!-- Pie chart will render here -->
-    </div>
+  <div id="container">
+    <aside id="sidebar">
+      <!-- The tree view will be generated here -->
+    </aside>
+    <main id="main">
+      <p>Select a node from the tree to see details and visualizations.</p>
+    </main>
   </div>
-
   <script src="script.js"></script>
 </body>
 </html>
