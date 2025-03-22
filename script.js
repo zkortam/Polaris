@@ -1,356 +1,328 @@
-// Global variables to support drill-down filtering.
-let drillDownStack = [];
-let currentViewData = [];  // will hold an array of nodes for current level.
-let currentTitle = "Spending";
+/* script.js */
 
-// On page load, fetch data.txt from the repo and initialize charts.
-document.addEventListener("DOMContentLoaded", function() {
-  fetch("data.txt")
-    .then(response => response.text())
-    .then(text => {
-      // Parse the top-level sections.
-      const topData = parseData(text);
-      topData.forEach(node => computeSums(node));
-      // Set global current view.
-      currentViewData = topData;
-      currentTitle = "Spending";
-      updateAllCharts(currentViewData, currentTitle);
-    })
-    .catch(err => console.error("Error loading data.txt:", err));
+// Global variables to store full and filtered datasets
+let allData = [];
+let filteredData = [];
 
-  // Set up Back button event.
-  document.getElementById("backButton").addEventListener("click", () => {
-    if (drillDownStack.length > 0) {
-      const previous = drillDownStack.pop();
-      currentViewData = previous.data;
-      currentTitle = previous.title;
-      updateAllCharts(currentViewData, currentTitle);
-      if (drillDownStack.length === 0) {
-        document.getElementById("backButton").style.display = "none";
+// CSV file path
+const dataFile = "data.csv";
+
+// Load and parse CSV data using the provided hierarchical format
+d3.text(dataFile).then(function(rawText) {
+  const rows = d3.csvParseRows(rawText);
+  let parsedData = [];
+  let currentCategory = "";
+  
+  rows.forEach(r => {
+    if (!r || r.length === 0) return;
+    let line = r[0].trim();
+    // If the line starts and ends with square brackets, update current category
+    if (line.startsWith('[') && line.endsWith(']')) {
+      currentCategory = line.replace(/[\[\]]/g, '');
+    }
+    // Skip lines that are just block markers (like { or })
+    else if (line.startsWith('{') || line.startsWith('}')) {
+      return;
+    }
+    // If the line contains a pipe, assume it's an item row
+    else if (line.includes('|')) {
+      let parts = line.split('|');
+      let item = parts[0].trim();
+      let amount = parseFloat(parts[1].replace(/[^\d.-]/g, ""));
+      if (!isNaN(amount)) {
+        parsedData.push({ Category: currentCategory, Item: item, Amount: amount });
       }
     }
   });
+  
+  allData = parsedData;
+  filteredData = allData;
+  console.log("Parsed Data:", allData);
+  
+  createFilterOptions(allData);
+  updateSummaryMetrics(filteredData);
+  updateVisualizations(filteredData);
 });
 
-// updateAllCharts takes an array of nodes and a title, wraps the data,
-// and renders the three visualizations.
-function updateAllCharts(data, title) {
-  // Wrap current data into an object for the treemap.
-  const wrappedData = { name: title, children: data };
-  document.getElementById("treemapTitle").innerText = `${title} Treemap`;
-  document.getElementById("barChartTitle").innerText = `${title} Breakdown (Bar Chart)`;
-  document.getElementById("pieChartTitle").innerText = `${title} Breakdown (Pie Chart)`;
+// Create filter dropdown options
+function createFilterOptions(data) {
+  const select = document.getElementById("categoryFilter");
+  select.innerHTML = "";
+  let categories = [...new Set(data.map(d => d.Category))];
+  categories.sort();
   
-  createTreemap(wrappedData);
-  createBarChart(data);
-  createPieChart(data);
+  let allOption = document.createElement("option");
+  allOption.value = "All";
+  allOption.text = "All Categories";
+  select.appendChild(allOption);
+  
+  categories.forEach(cat => {
+    let opt = document.createElement("option");
+    opt.value = cat;
+    opt.text = cat;
+    select.appendChild(opt);
+  });
 }
 
-// DRILL-DOWN: Given a node, if it has children or line items, drill down to show its breakdown.
-function drillDown(node) {
-  // Determine if there is any breakdown (either nested children or items).
-  if ((!node.children || node.children.length === 0) && (!node.items || node.items.length === 0)) {
-    return; // nothing to drill down.
-  }
-  // Build a combined array from the node's children and items.
-  let subnodes = [];
-  if (node.children && node.children.length > 0) {
-    subnodes = subnodes.concat(node.children);
-  }
-  if (node.items && node.items.length > 0) {
-    // Convert each line item into a node.
-    const itemNodes = node.items.map(item => ({
-      name: item.key,
-      value: item.amount,
-      children: [],
-      items: []
-    }));
-    subnodes = subnodes.concat(itemNodes);
-  }
-  // Push current view onto the drillDownStack.
-  drillDownStack.push({ data: currentViewData, title: currentTitle });
-  // Update globals.
-  currentViewData = subnodes;
-  currentTitle = node.name;
-  // Show the back button.
-  document.getElementById("backButton").style.display = "inline-block";
-  updateAllCharts(currentViewData, currentTitle);
+// Update summary metrics
+function updateSummaryMetrics(data) {
+  let total = d3.sum(data, d => d.Amount);
+  let avg = d3.mean(data, d => d.Amount);
+  let maxEntry = data.reduce((a, b) => a.Amount > b.Amount ? a : b, {Amount: 0, Category: "N/A"});
+  
+  document.getElementById("totalSpending").textContent = total.toFixed(2);
+  document.getElementById("averageSpending").textContent = avg.toFixed(2);
+  document.getElementById("maxCategory").textContent = `${maxEntry.Category} ($${maxEntry.Amount.toFixed(2)})`;
 }
 
-// ----------------------
-// PARSING FUNCTIONS
-// ----------------------
+// Update all visualizations based on whether a single high-level category is selected
+function updateVisualizations(data) {
+  // If only one category remains, aggregate by item
+  if (new Set(data.map(d => d.Category)).size === 1) {
+    const aggregatedData = d3.nest()
+      .key(d => d.Item)
+      .rollup(v => d3.sum(v, d => d.Amount))
+      .entries(data);
+    createBarChart(aggregatedData);
+    createTreemap(aggregatedData);
+    createSankey(aggregatedData);
+    createWaterfall(aggregatedData);
+    createPieChart(aggregatedData);
+    createDonutChart(aggregatedData);
+    // Use raw data for scatter, histogram, and box plot
+    createScatterChart(data);
+    createHistogram(data);
+    createBoxPlot(data);
+    populateDataTable(data);
+  } else {
+    // Otherwise, aggregate by high-level category
+    const aggregatedData = d3.nest()
+      .key(d => d.Category)
+      .rollup(v => d3.sum(v, d => d.Amount))
+      .entries(data);
+    createBarChart(aggregatedData);
+    createTreemap(aggregatedData);
+    createSankey(aggregatedData);
+    createWaterfall(aggregatedData);
+    createPieChart(aggregatedData);
+    createDonutChart(aggregatedData);
+    createScatterChart(data);
+    createHistogram(data);
+    createBoxPlot(data);
+    populateDataTable(data);
+  }
+}
 
-// Parses data.txt into a nested JSON structure.
-function parseData(text) {
-  const lines = text.split("\n");
-  let index = 0;
-  const sections = [];
+// Event listeners for filtering
+document.getElementById("categoryFilter").addEventListener("change", function() {
+  const selected = this.value;
+  filteredData = (selected === "All") ? allData : allData.filter(d => d.Category === selected);
+  updateSummaryMetrics(filteredData);
+  updateVisualizations(filteredData);
+});
+document.getElementById("resetFilter").addEventListener("click", function() {
+  document.getElementById("categoryFilter").value = "All";
+  filteredData = allData;
+  updateSummaryMetrics(filteredData);
+  updateVisualizations(filteredData);
+});
 
-  while (index < lines.length) {
-    let line = lines[index].trim();
-    if (line === "") { 
-      index++; 
-      continue; 
+// Download CSV button functionality
+document.getElementById("downloadData").addEventListener("click", function() {
+  let csvContent = "data:text/csv;charset=utf-8,Category,Amount\n";
+  filteredData.forEach(row => {
+    csvContent += `${row.Category},${row.Amount}\n`;
+  });
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "filtered_data.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+});
+
+// ----------------- Visualization Functions -----------------
+
+// Bar Chart: Spending by Category or Item
+function createBarChart(aggregatedData) {
+  const trace = {
+    x: aggregatedData.map(d => d.key),
+    y: aggregatedData.map(d => d.value),
+    type: 'bar',
+    marker: { color: 'rgb(142,124,195)' }
+  };
+  const layout = { 
+    title: 'Spending by Category',
+    margin: { t: 60, b: 100, l: 80, r: 80 },
+    xaxis: { automargin: true },
+    yaxis: { automargin: true }
+  };
+  Plotly.newPlot('barChart', [trace], layout, { responsive: true });
+}
+
+// Treemap: Hierarchical Spending Distribution
+function createTreemap(aggregatedData) {
+  const dataTrace = [{
+    type: "treemap",
+    labels: aggregatedData.map(d => d.key),
+    values: aggregatedData.map(d => d.value),
+    textinfo: "label+value+percent parent",
+    hoverinfo: "label+value+percent parent+percent entry"
+  }];
+  const layout = { 
+    title: "Spending Treemap",
+    margin: { t: 60, b: 80, l: 80, r: 80 }
+  };
+  Plotly.newPlot('treemapChart', dataTrace, layout, { responsive: true });
+}
+
+// Sankey Diagram: Fund Flow from Total Budget to Categories/Items
+function createSankey(aggregatedData) {
+  const labels = ["Total Budget"].concat(aggregatedData.map(d => d.key));
+  const source = [];
+  const target = [];
+  const values = [];
+  aggregatedData.forEach((d, i) => {
+    source.push(0);
+    target.push(i + 1);
+    values.push(d.value);
+  });
+  const dataTrace = {
+    type: "sankey",
+    orientation: "h",
+    node: {
+      pad: 15,
+      thickness: 20,
+      line: { color: "black", width: 0.5 },
+      label: labels
+    },
+    link: {
+      source: source,
+      target: target,
+      value: values
     }
-    if (line.startsWith("[")) {
-      sections.push(parseSection());
-    } else {
-      index++;
-    }
-  }
-  return sections;
-
-  // Recursively parse a section.
-  function parseSection() {
-    const section = { name: "", amount: 0, items: [], children: [] };
-    const headerLine = lines[index++].trim();
-    const headerRegex = /^\[+\s*([^:\]]+)(?::\s*\$([\d,.\-]+))?\s*\]+.*\{/;
-    const headerMatch = headerLine.match(headerRegex);
-    if (headerMatch) {
-      section.name = headerMatch[1].trim();
-      if (headerMatch[2]) {
-        section.amount = parseFloat(headerMatch[2].replace(/,/g, ""));
-      }
-    }
-    while (index < lines.length) {
-      let currLine = lines[index].trim();
-      if (currLine === "}" || currLine === "};") {
-        index++;
-        break;
-      }
-      if (currLine.startsWith("[")) {
-        section.children.push(parseSection());
-      } else if (currLine !== "") {
-        const item = parseItem(currLine);
-        if (item) section.items.push(item);
-        index++;
-      } else {
-        index++;
-      }
-    }
-    return section;
-  }
+  };
+  const layout = { 
+    title: "Sankey Diagram of Fund Flow",
+    font: { size: 10 },
+    margin: { t: 60, b: 80, l: 80, r: 80 }
+  };
+  Plotly.newPlot('sankeyChart', [dataTrace], layout, { responsive: true });
 }
 
-// Parse a line item, e.g. "Total Reserves | $1,189,555.55"
-function parseItem(line) {
-  const itemRegex = /^(.+?)[|\–-]\s*\(?\$([\d,.\-]+)\)?/;
-  const match = line.match(itemRegex);
-  if (match) {
-    const key = match[1].trim();
-    const rawValue = match[2].replace(/,/g, "");
-    const value = parseFloat(rawValue);
-    return { key: key, amount: value };
-  }
-  return null;
+// Waterfall Chart: Cumulative Spending Impact
+function createWaterfall(aggregatedData) {
+  const measures = aggregatedData.map(() => "relative");
+  const trace = {
+    type: "waterfall",
+    x: aggregatedData.map(d => d.key),
+    y: aggregatedData.map(d => d.value),
+    measure: measures,
+    textposition: "outside",
+    text: aggregatedData.map(d => d.value)
+  };
+  const layout = { 
+    title: "Waterfall Chart of Spending",
+    margin: { t: 60, b: 100, l: 80, r: 80 }
+  };
+  Plotly.newPlot('waterfallChart', [trace], layout, { responsive: true });
 }
 
-// Recursively compute the sum of amounts for a node.
-function computeSums(node) {
-  let sumItems = node.items.reduce((acc, item) => acc + item.amount, 0);
-  let sumChildren = node.children.reduce((acc, child) => acc + computeSums(child), 0);
-  node.value = (node.amount || 0) + sumItems + sumChildren;
-  return node.value;
+// Scatter/Bubble Chart: Individual Spending Data Points
+function createScatterChart(data) {
+  const trace = {
+    x: data.map(d => d.Category),
+    y: data.map(d => d.Amount),
+    mode: 'markers',
+    marker: { size: data.map(d => Math.sqrt(Math.abs(d.Amount)) * 5) },
+    text: data.map(d => d.Category)
+  };
+  const layout = {
+    title: "Scatter/Bubble Chart of Spending",
+    xaxis: { title: "Category", automargin: true },
+    yaxis: { title: "Spending Amount", automargin: true },
+    margin: { t: 60, b: 100, l: 80, r: 80 }
+  };
+  Plotly.newPlot('scatterChart', [trace], layout, { responsive: true });
 }
 
-// ----------------------
-// VISUALIZATION FUNCTIONS
-// ----------------------
-
-// TREEMAP
-function createTreemap(rootData) {
-  d3.select("#treemap").select("svg").remove();
-  const width = 1000, height = 600;
-  const svg = d3.select("#treemap")
-    .append("svg")
-    .attr("width", width)
-    .attr("height", height);
-  
-  const tooltip = d3.select("body")
-    .append("div")
-    .attr("class", "tooltip")
-    .style("opacity", 0);
-  
-  const root = d3.hierarchy(rootData)
-    .sum(d => d.value)
-    .sort((a, b) => b.value - a.value);
-  
-  d3.treemap()
-    .size([width, height])
-    .padding(4)(root);
-  
-  const nodes = svg.selectAll("g")
-    .data(root.leaves())
-    .enter()
-    .append("g")
-    .attr("transform", d => `translate(${d.x0},${d.y0})`)
-    .on("click", (event, d) => drillDown(d.data));
-  
-  nodes.append("rect")
-    .attr("width", d => d.x1 - d.x0)
-    .attr("height", d => d.y1 - d.y0)
-    .attr("fill", d => d3.interpolateBlues(d.data.value / root.data.value))
-    .on("mousemove", (event, d) => {
-      tooltip.style("opacity", 1)
-        .html(`<strong>${d.data.name}</strong><br>$${d.data.value.toLocaleString()}`)
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 25) + "px");
-    })
-    .on("mouseout", () => tooltip.style("opacity", 0));
-  
-  nodes.append("text")
-    .attr("x", 4)
-    .attr("y", 14)
-    .text(d => d.data.name)
-    .attr("font-size", "12px")
-    .attr("fill", "white")
-    .call(wrapText, (d) => d.x1 - d.x0 - 4);
+// Pie Chart: Spending as a Portion of the Whole
+function createPieChart(aggregatedData) {
+  const trace = {
+    type: "pie",
+    labels: aggregatedData.map(d => d.key),
+    values: aggregatedData.map(d => d.value),
+    textinfo: "label+percent",
+    hoverinfo: "label+value+percent"
+  };
+  const layout = { 
+    title: "Pie Chart of Spending Distribution",
+    margin: { t: 60, b: 80, l: 80, r: 80 }
+  };
+  Plotly.newPlot('pieChart', [trace], layout, { responsive: true });
 }
 
-// BAR CHART: Displays one bar for each node in the current view.
-function createBarChart(data) {
-  d3.select("#barChart").select("svg").remove();
-  const margin = { top: 40, right: 20, bottom: 100, left: 120 },
-        width = 1000 - margin.left - margin.right,
-        height = 600 - margin.top - margin.bottom;
-  
-  // Prepare barData from the current view.
-  const barData = data.map(d => ({ name: d.name, value: d.value, data: d }));
-  
-  const svg = d3.select("#barChart")
-    .append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-    .append("g")
-    .attr("transform", `translate(${margin.left},${margin.top})`);
-  
-  const x = d3.scaleBand()
-    .domain(barData.map(d => d.name))
-    .range([0, width])
-    .padding(0.4);
-  
-  const y = d3.scaleLinear()
-    .domain([0, d3.max(barData, d => d.value)]).nice()
-    .range([height, 0]);
-  
-  svg.append("g")
-    .attr("transform", `translate(0,${height})`)
-    .call(d3.axisBottom(x))
-    .selectAll("text")
-      .attr("transform", "rotate(-45)")
-      .style("text-anchor", "end")
-      .style("font-size", "12px");
-  
-  svg.append("g")
-    .call(d3.axisLeft(y).tickFormat(d => "$" + d3.format(",")(d)))
-    .style("font-size", "12px");
-  
-  const tooltip = d3.select("body")
-    .append("div")
-    .attr("class", "tooltip")
-    .style("opacity", 0);
-  
-  svg.selectAll(".bar")
-    .data(barData)
-    .enter()
-    .append("rect")
-      .attr("class", "bar")
-      .attr("x", d => x(d.name))
-      .attr("y", d => y(d.value))
-      .attr("width", x.bandwidth())
-      .attr("height", d => height - y(d.value))
-      .attr("fill", "#69b3a2")
-      .on("mousemove", (event, d) => {
-        tooltip.style("opacity", 1)
-          .html(`<strong>${d.name}</strong><br>$${d.value.toLocaleString()}`)
-          .style("left", (event.pageX + 10) + "px")
-          .style("top", (event.pageY - 25) + "px");
-      })
-      .on("mouseout", () => tooltip.style("opacity", 0))
-      .on("click", (event, d) => drillDown(d.data));
+// Histogram: Distribution of Spending Amounts
+function createHistogram(data) {
+  const trace = {
+    x: data.map(d => d.Amount),
+    type: "histogram",
+    marker: { color: 'rgb(100, 149, 237)' }
+  };
+  const layout = {
+    title: "Histogram of Spending Amounts",
+    xaxis: { title: "Amount", automargin: true },
+    yaxis: { title: "Frequency", automargin: true },
+    margin: { t: 60, b: 100, l: 80, r: 80 }
+  };
+  Plotly.newPlot('histogramChart', [trace], layout, { responsive: true });
 }
 
-// PIE CHART: Shows the percentage breakdown for the current view.
-function createPieChart(data) {
-  d3.select("#pieChart").select("svg").remove();
-  const width = 500, height = 500, margin = 40;
-  const radius = Math.min(width, height) / 2 - margin;
-  
-  // Build pieData from the current view.
-  const pieData = {};
-  data.forEach(d => { pieData[d.name] = d.value; });
-  
-  const svg = d3.select("#pieChart")
-    .append("svg")
-      .attr("width", width)
-      .attr("height", height)
-    .append("g")
-      .attr("transform", `translate(${width/2},${height/2})`);
-  
-  const color = d3.scaleOrdinal()
-    .domain(Object.keys(pieData))
-    .range(d3.schemeSet2);
-  
-  const pie = d3.pie()
-    .value(d => d.value);
-  const data_ready = pie(d3.entries(pieData));
-  
-  const tooltip = d3.select("body")
-    .append("div")
-    .attr("class", "tooltip")
-    .style("opacity", 0);
-  
-  svg.selectAll('path')
-    .data(data_ready)
-    .enter()
-    .append('path')
-    .attr('d', d3.arc()
-      .innerRadius(0)
-      .outerRadius(radius)
-    )
-    .attr('fill', d => color(d.data.key))
-    .attr("stroke", "white")
-    .style("stroke-width", "2px")
-    .on("mousemove", (event, d) => {
-      const total = d3.sum(Object.values(pieData));
-      const percent = ((d.data.value / total)*100).toFixed(2);
-      tooltip.style("opacity", 1)
-        .html(`<strong>${d.data.key}</strong><br>$${d.data.value.toLocaleString()}<br>${percent}%`)
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 25) + "px");
-    })
-    .on("mouseout", () => tooltip.style("opacity", 0))
-    .on("click", (event, d) => {
-      // Find the corresponding node in currentViewData and drill down if possible.
-      const node = currentViewData.find(n => n.name === d.data.key);
-      if (node) drillDown(node);
-    });
+// Box Plot: Spending Distribution by Category
+function createBoxPlot(data) {
+  const categories = [...new Set(data.map(d => d.Category))];
+  const traces = categories.map(cat => {
+    const amounts = data.filter(d => d.Category === cat).map(d => d.Amount);
+    return { y: amounts, type: 'box', name: cat };
+  });
+  const layout = {
+    title: "Box Plot of Spending Amounts by Category",
+    yaxis: { title: "Amount", automargin: true },
+    margin: { t: 60, b: 100, l: 80, r: 80 }
+  };
+  Plotly.newPlot('boxPlotChart', traces, layout, { responsive: true });
 }
 
-// Utility: Wrap text in SVG text elements if too long.
-function wrapText(textSelection, maxWidthFn) {
-  textSelection.each(function(d) {
-    const text = d3.select(this),
-          words = text.text().split(/\s+/).reverse(),
-          maxWidth = maxWidthFn(d);
-    let word,
-        line = [],
-        lineNumber = 0,
-        lineHeight = 1.1, // ems
-        y = text.attr("y"),
-        dy = 0, // baseline offset
-        tspan = text.text(null).append("tspan").attr("x", 4).attr("y", y).attr("dy", dy + "em");
-    
-    while (word = words.pop()) {
-      line.push(word);
-      tspan.text(line.join(" "));
-      if (tspan.node().getComputedTextLength() > maxWidth && line.length > 1) {
-        line.pop();
-        tspan.text(line.join(" "));
-        line = [word];
-        tspan = text.append("tspan").attr("x", 4).attr("y", y).attr("dy", ++lineNumber * lineHeight + dy + "em").text(word);
-      }
-    }
+// Donut Chart: A Variation on the Pie Chart
+function createDonutChart(aggregatedData) {
+  const trace = {
+    type: "pie",
+    labels: aggregatedData.map(d => d.key),
+    values: aggregatedData.map(d => d.value),
+    hole: 0.4,
+    textinfo: "label+percent",
+    hoverinfo: "label+value+percent"
+  };
+  const layout = { 
+    title: "Donut Chart of Spending Breakdown",
+    margin: { t: 60, b: 80, l: 80, r: 80 }
+  };
+  Plotly.newPlot('donutChart', [trace], layout, { responsive: true });
+}
+
+// Data Table: Populate raw CSV data
+function populateDataTable(data) {
+  const tbody = document.querySelector("#dataTable tbody");
+  tbody.innerHTML = "";
+  data.forEach(d => {
+    const tr = document.createElement("tr");
+    const categoryTd = document.createElement("td");
+    categoryTd.textContent = d.Category;
+    tr.appendChild(categoryTd);
+    const amountTd = document.createElement("td");
+    amountTd.textContent = d.Amount;
+    tr.appendChild(amountTd);
+    tbody.appendChild(tr);
   });
 }
