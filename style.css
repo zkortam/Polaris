@@ -1,31 +1,42 @@
-/* style.css */
-
 body {
     font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background: #f5f5f5;
+    margin: 20px;
+    background: #f9f9f9;
     color: #333;
   }
   
   header {
-    background: #333;
-    color: #fff;
-    padding: 1rem;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .upload-container {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  
+  .chart-container {
+    margin: 20px auto;
+    background: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    width: 90%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+  
+  .chart-container h2 {
     text-align: center;
   }
   
-  main {
-    padding: 1rem;
-  }
-  
-  pre#dataDisplay {
-    background: #fff;
-    border: 1px solid #ccc;
-    padding: 1rem;
-    white-space: pre-wrap;
-    font-family: Consolas, monospace;
-    max-width: 100%;
-    overflow-x: auto;
+  /* Tooltip styles for interactive charts */
+  .tooltip {
+    position: absolute;
+    text-align: center;
+    padding: 6px;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    border-radius: 4px;
+    pointer-events: none;
   }
   

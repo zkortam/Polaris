@@ -2,17 +2,41 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Student Government Budget Breakdown</title>
+  <title>Student Government Spending Analysis</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Load D3.js from CDN -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
   <header>
-    <h1>Student Government Budget Breakdown</h1>
+    <h1>Student Government Spending Analysis</h1>
+    <p>
+      The following analysis highlights questionable spending practices. Notice the enormous amounts allocated to Office Operations (over $3.4M) compared to a tiny General Operations budget (only ~$90k), as well as a highly fragmented locked‐in allocation and very high career employee spending. Use the charts below to explore these issues.
+    </p>
   </header>
-  <main>
-    <!-- The contents of data.txt (formatted with nested brackets/curly braces) will be loaded here -->
-    <pre id="dataDisplay">Loading data...</pre>
-  </main>
+
+  <!-- File input for uploading your data.txt file -->
+  <div class="upload-container">
+    <label for="fileInput">Upload data.txt:</label>
+    <input type="file" id="fileInput" accept=".txt">
+  </div>
+
+  <!-- Containers for interactive visualizations -->
+  <div id="charts">
+    <div id="treemap" class="chart-container">
+      <h2>Overall Spending Treemap</h2>
+      <!-- Treemap will render here -->
+    </div>
+    <div id="barChart" class="chart-container">
+      <h2>Top-Level Spending Comparison</h2>
+      <!-- Bar chart will render here -->
+    </div>
+    <div id="pieChart" class="chart-container">
+      <h2>Spending Breakdown (Pie Chart)</h2>
+      <!-- Pie chart will render here -->
+    </div>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>
